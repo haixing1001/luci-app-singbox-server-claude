@@ -1,0 +1,231 @@
+name: Build OpenWrt Package & Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      pkg_repo:
+        description: '上游仓库（格式：user/repo）'
+        required: true
+        default: 'haixing1001/luci-app-singbox-server-claude'
+      pkg_branch:
+        description: '仓库分支'
+        required: true
+        default: 'main'
+      pkg_name:
+        description: '要编译的包名，多个用空格分隔'
+        required: true
+      prerelease:
+        description: 'Mark as pre-release'
+        required: false
+        default: 'false'
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+  PKG_REPO: ${{ github.event.inputs.pkg_repo }}
+  PKG_BRANCH: ${{ github.event.inputs.pkg_branch }}
+  PKG_NAME: ${{ github.event.inputs.pkg_name }}
+
+jobs:
+  build:
+    name: ${{ matrix.arch }} · SDK ${{ matrix.sdk }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        arch:
+          - aarch64_cortex-a53
+          - x86_64
+        sdk:
+         # - "24.10"
+          - "25.12"
+
+    steps:
+      - name: Checkout this repo
+        uses: actions/checkout@v4
+
+      - name: Prepare feed directory
+        run: |
+          git clone --depth=1 -b "$PKG_BRANCH" \
+            "https://github.com/${PKG_REPO}.git" /tmp/pkg_src
+
+          FEED_DIR="${GITHUB_WORKSPACE}/feed"
+          mkdir -p "${FEED_DIR}"
+
+          # 判断仓库根目录是否为单包目录（含 PKG_NAME 定义的 Makefile）
+          # 是单包目录：需要为每个包名创建子目录（多包时从同一根目录复制）
+          # 是 feed 目录：直接复制整个目录结构即可
+          if grep -qE '^\s*PKG_NAME\s*:?=' /tmp/pkg_src/Makefile 2>/dev/null; then
+            echo "检测到根目录是单包目录，为每个包名创建子目录..."
+            for pkg in $PKG_NAME; do
+              mkdir -p "${FEED_DIR}/${pkg}"
+              cp -r /tmp/pkg_src/. "${FEED_DIR}/${pkg}/"
+            done
+          else
+            echo "检测到根目录是 feed 目录，直接使用..."
+            cp -r /tmp/pkg_src/. "${FEED_DIR}/"
+          fi
+
+          echo "FEED_DIR=${FEED_DIR}" >> "$GITHUB_ENV"
+          echo "Feed 目录内容："
+          ls -la "${FEED_DIR}/"
+
+      - name: Build packages
+        uses: openwrt/gh-action-sdk@main
+        env:
+          ARCH: ${{ matrix.arch }}-openwrt-${{ matrix.sdk }}
+          FEED_DIR: ${{ env.FEED_DIR }}
+          FEEDNAME: custom
+          PACKAGES: ${{ env.PKG_NAME }}
+          NO_REFRESH_CHECK: true
+          INDEX: 1
+          V: s
+
+      - name: Collect packages
+        run: |
+          ARCH="${{ matrix.arch }}"
+          mkdir -p dist/release dist/feed
+
+          # IPK：release 加安全文件名，feed 保留原名
+          for f in bin/packages/"${ARCH}"/custom/*.ipk; do
+            [ -f "$f" ] || continue
+            [[ "$(basename "$f")" == Packages* ]] && continue
+            
+            # 【仅保留简体中文】如果是语言包，且不包含 zh-cn、zh_hans 或 zh-Hans，则直接跳过
+            if [[ "$(basename "$f")" == *"luci-i18n-"* ]]; then
+              if [[ "$(basename "$f")" != *"zh-cn"* ]] && [[ "$(basename "$f")" != *"zh_hans"* ]] && [[ "$(basename "$f")" != *"zh-Hans"* ]]; then
+                echo "过滤非简体中文包: $(basename "$f")"
+                continue
+              fi
+            fi
+
+            base=$(basename "$f" .ipk)
+            safe="${base//\~/.}"
+            cp -v "$f" "dist/release/${safe}.ipk"
+            cp -v "$f" "dist/feed/"
+          done
+
+          # APK：release 加架构后缀，feed 保留原名
+          for f in bin/packages/"${ARCH}"/custom/*.apk; do
+            [ -f "$f" ] || continue
+            [[ "$(basename "$f")" == Packages* ]] && continue
+            
+            # 【仅保留简体中文】如果是语言包，且不包含 zh-cn、zh_hans 或 zh-Hans，则直接跳过
+            if [[ "$(basename "$f")" == *"luci-i18n-"* ]]; then
+              if [[ "$(basename "$f")" != *"zh-cn"* ]] && [[ "$(basename "$f")" != *"zh_hans"* ]] && [[ "$(basename "$f")" != *"zh-Hans"* ]]; then
+                echo "过滤非简体中文包: $(basename "$f")"
+                continue
+              fi
+            fi
+
+            base=$(basename "$f" .apk)
+            safe="${base//\~/.}"
+            cp -v "$f" "dist/release/${safe}-${ARCH}.apk"
+            cp -v "$f" "dist/feed/${safe}.apk"
+          done
+
+          # Feed 索引文件（仅 feed 目录）
+          for f in \
+            bin/packages/"${ARCH}"/custom/Packages* \
+            bin/packages/"${ARCH}"/custom/APKINDEX*; do
+            [ -f "$f" ] || continue
+            cp -v "$f" dist/feed/
+          done
+
+          echo "--- dist/release 内容 ---"
+          ls -lh dist/release/ || true
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: packages-sdk${{ matrix.sdk }}-${{ matrix.arch }}
+          path: dist/
+          if-no-files-found: ignore
+
+  release:
+    name: Create Release
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout this repo
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: all-artifacts
+          pattern: packages-*
+
+      - name: Flatten release files
+        run: |
+          mkdir -p dist
+          find all-artifacts -path "*/release/*" -type f -exec cp -v {} dist/ \;
+          echo "--- dist 内容 ---"
+          ls -lh dist/ || true
+
+      - name: Determine tag
+        id: meta
+        run: |
+          # 取第一个包名作为 tag 前缀
+          FIRST_PKG=$(echo "$PKG_NAME" | awk '{print $1}')
+          DATETIME=$(date +%Y.%m.%d.%H%M)
+          echo "tag=${FIRST_PKG}-${DATETIME}" >> "$GITHUB_OUTPUT"
+          echo "prerelease=${{ github.event.inputs.prerelease }}" >> "$GITHUB_OUTPUT"
+
+      - name: Generate Release Notes
+        env:
+          TAG: ${{ steps.meta.outputs.tag }}
+          REPO: ${{ github.repository }}
+        run: |
+          BASE="https://github.com/${REPO}/releases/download/${TAG}"
+          ARCHS="aarch64_cortex-a53 x86_64"
+
+          {
+            echo "## 📦 SDK 24.10 · IPK"
+            echo ""
+            echo "| 架构 | 包文件 |"
+            echo "| :--- | :--- |"
+
+            for arch in $ARCHS; do
+              for f in dist/*_all.ipk dist/*_${arch}.ipk; do
+                [ -f "$f" ] || continue
+                link="[$(basename "$f")](${BASE}/$(basename "$f"))"
+                echo "| \`${arch}\` | ${link} |"
+              done
+            done
+
+            echo ""
+            echo "## 📦 SDK 25.12 · APK"
+            echo ""
+            echo "| 架构 | 包文件 |"
+            echo "| :--- | :--- |"
+
+            for arch in $ARCHS; do
+              for f in dist/*-${arch}.apk; do
+                [ -f "$f" ] || continue
+                link="[$(basename "$f")](${BASE}/$(basename "$f"))"
+                echo "| \`${arch}\` | ${link} |"
+              done
+            done
+
+            echo ""
+            echo "---"
+            echo "> 包名：\`${PKG_NAME}\` · 源码：[${PKG_REPO}](https://github.com/${PKG_REPO}) · 分支 \`${PKG_BRANCH}\`"
+          } > release_notes.md
+
+          cat release_notes.md
+
+      - name: Publish Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.meta.outputs.tag }}
+          name: Release ${{ steps.meta.outputs.tag }}
+          body_path: release_notes.md
+          prerelease: ${{ steps.meta.outputs.prerelease }}
+          files: dist/**
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
