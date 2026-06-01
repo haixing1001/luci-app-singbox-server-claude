@@ -1,0 +1,31 @@
+<%
+local dsp = require "luci.dispatcher"
+-%>
+<script type="text/javascript">
+//<![CDATA[
+(function() {
+	var badges = document.querySelectorAll('.sb_user_status');
+	for (var i = 0; i < badges.length; i++) {
+		(function(badge, idx) {
+			// Walk up to the <tr> to extract the section id from its id attribute
+			var row = badge.closest('tr');
+			if (!row) return;
+			var rowId = row.id || '';
+			var sectionId = rowId.substr(rowId.lastIndexOf('-') + 1);
+
+			XHR.poll(3,
+				'<%=dsp.build_url("admin/vpn/sing_box_server/users_status")%>',
+				{index: idx, id: sectionId},
+				function(x, result) {
+					if (!result) return;
+					var ok = result.status === true || result.status === 'true';
+					badge.style.fontWeight = 'bold';
+					badge.style.color  = ok ? 'green' : 'red';
+					badge.textContent  = ok ? '✓' : '✗';
+				}
+			);
+		})(badges[i], i);
+	}
+})();
+//]]>
+</script>

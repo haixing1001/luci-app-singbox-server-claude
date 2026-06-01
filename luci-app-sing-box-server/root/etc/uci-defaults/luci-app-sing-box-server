@@ -1,0 +1,22 @@
+#!/bin/sh
+
+uci -q batch <<-EOF >/dev/null
+	delete firewall.sing_box_server
+	set firewall.sing_box_server=include
+	set firewall.sing_box_server.type=script
+	set firewall.sing_box_server.path=/usr/share/sing_box_server/firewall.include
+	set firewall.sing_box_server.reload=1
+	commit firewall
+EOF
+
+uci -q batch <<-EOF >/dev/null
+	delete ucitrack.@sing_box_server[-1]
+	add ucitrack sing_box_server
+	set ucitrack.@sing_box_server[-1].init=sing_box_server
+	commit ucitrack
+EOF
+
+chmod a+x /usr/share/sing_box_server/* >/dev/null 2>&1
+
+rm -rf /tmp/luci-*
+exit 0

@@ -1,0 +1,41 @@
+<%
+local dsp = require "luci.dispatcher"
+-%>
+<script type="text/javascript">
+//<![CDATA[
+function clearSbLog() {
+	XHR.get('<%=dsp.build_url("admin/vpn/sing_box_server/clear_log")%>', null,
+		function(x) {
+			if (x && x.status === 200) {
+				var ta = document.getElementById('sb_log_textarea');
+				if (ta) { ta.value = ''; }
+			}
+		}
+	);
+}
+
+XHR.poll(4, '<%=dsp.build_url("admin/vpn/sing_box_server/get_log")%>', null,
+	function(x) {
+		if (x && x.status === 200) {
+			var ta = document.getElementById('sb_log_textarea');
+			if (ta) {
+				ta.value = x.responseText;
+				ta.scrollTop = ta.scrollHeight;
+			}
+		}
+	}
+);
+//]]>
+</script>
+
+<fieldset class="cbi-section" id="sb_log_fieldset">
+	<legend><%:Logs%></legend>
+	<input class="cbi-button cbi-input-remove" type="button"
+	       onclick="clearSbLog()" value="<%:Clear Logs%>" />
+	<textarea id="sb_log_textarea"
+	          class="cbi-input-textarea"
+	          style="width:100%; margin-top:8px;"
+	          rows="18"
+	          wrap="off"
+	          readonly="readonly"></textarea>
+</fieldset>

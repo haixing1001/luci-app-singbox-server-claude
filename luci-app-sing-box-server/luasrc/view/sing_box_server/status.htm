@@ -1,0 +1,42 @@
+<%
+local sb  = require "luci.model.cbi.sing_box_server.api.singbox"
+local dsp = require "luci.dispatcher"
+local ver = sb.get_version()
+local running = sb.is_running()
+-%>
+<script type="text/javascript">
+//<![CDATA[
+var tokenStr = '<%=token%>';
+
+function restartSingBox(btn) {
+	btn.disabled = true;
+	btn.value = '<%:Restarting...%>';
+	new XHR().get('<%=dsp.build_url("admin/vpn/sing_box_server/restart")%>',
+		{token: tokenStr},
+		function(x, json) {
+			btn.disabled = false;
+			btn.value = '<%:Restart Service%>';
+			if (!json || json.code !== 0) {
+				alert('<%:Restart failed.%>');
+			}
+		}
+	);
+}
+//]]>
+</script>
+
+<div class="cbi-value">
+	<label class="cbi-value-title">sing-box <%:Version%></label>
+	<div class="cbi-value-field">
+		<div class="cbi-value-description">
+			<span style="font-weight:bold; color:<%=running and 'green' or 'grey'%>">
+				&#9679;&nbsp;
+			</span>
+			<span><%=ver%></span>
+			&nbsp;&nbsp;
+			<input class="cbi-button cbi-input-apply" type="button"
+			       value="<%:Restart Service%>"
+			       onclick="restartSingBox(this);" />
+		</div>
+	</div>
+</div>

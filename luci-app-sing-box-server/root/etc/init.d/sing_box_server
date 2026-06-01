@@ -1,0 +1,73 @@
+#!/bin/sh /etc/rc.common
+# SPDX-License-Identifier: GPL-3.0-or-later
+
+START=99
+
+CONFIG=sing_box_server
+CONFIG_PATH=/var/etc/$CONFIG
+LOG_PATH=/var/log/$CONFIG
+LOG_APP_FILE=$LOG_PATH/app.log
+
+echolog() {
+	echo -e "$(date "+%Y-%m-%d %H:%M:%S"): $1" >> $LOG_APP_FILE
+}
+
+gen_sing_box_config() {
+	local section="$1"
+	config_get enable "$section" enable
+	[ "$enable" = "0" ] && return 0
+	config_get remarks "$section" remarks
+	config_get port "$section" port
+	config_get protocol "$section" protocol
+
+	local cfg_file="$CONFIG_PATH/$section.json"
+	lua /usr/lib/lua/luci/model/cbi/sing_box_server/api/genconfig.lua "$section" > "$cfg_file"
+	if [ $? -ne 0 ] || [ ! -s "$cfg_file" ]; then
+		echolog "ERROR: failed to generate config for $remarks (port $port)"
+		return 1
+	fi
+
+	echolog "Starting $remarks (port $port) - $cfg_file"
+	/usr/bin/sing-box run -c "$cfg_file" >> "$LOG_PATH/$section.log" 2>&1 &
+}
+
+start_sing_box_server() {
+	mkdir -p "$CONFIG_PATH" "$LOG_PATH"
+	: > "$LOG_APP_FILE"
+	config_foreach gen_sing_box_config "user"
+	fw4 reload > /dev/null 2>&1
+}
+
+stop_sing_box_server() {
+	# Kill all running sing-box instances belonging to this service
+	local pids
+	pids=$(ps -w 2>/dev/null | grep "sing-box run -c $CONFIG_PATH/" | grep -v grep | awk '{print $1}')
+	[ -n "$pids" ] && echo "$pids" | xargs kill -9 >/dev/null 2>&1
+	fw4 reload > /dev/null 2>&1
+	rm -rf "$CONFIG_PATH"
+}
+
+start() {
+	config_load "$CONFIG"
+	local enable
+	enable=$(uci -q get "$CONFIG.@global[0].enable")
+	if [ "$enable" != "1" ]; then
+		stop_sing_box_server
+	else
+		start_sing_box_server
+	fi
+}
+
+stop() {
+	stop_sing_box_server
+}
+
+restart() {
+	stop
+	sleep 1
+	start
+}
+
+reload() {
+	restart
+}
