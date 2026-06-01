@@ -6,10 +6,10 @@
 include $(TOPDIR)/rules.mk
 
 LUCI_TITLE:=LuCI support for sing-box Server
-LUCI_DEPENDS:=+sing-box +luci-compat +luci-lua-runtime
+LUCI_DEPENDS:=+luci-compat +luci-lua-runtime
 LUCI_PKGARCH:=all
 PKG_VERSION:=1.0
-PKG_RELEASE:=1
+PKG_RELEASE:=0
 
 include ../../luci.mk
 
