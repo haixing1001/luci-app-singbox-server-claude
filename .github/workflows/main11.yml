@@ -1,0 +1,351 @@
+name: Build luci-app-sing-box-server
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Triggers
+# ─────────────────────────────────────────────────────────────────────────────
+on:
+  push:
+    branches: [main, master]
+    tags: ["v*"]
+    paths-ignore:
+      - "**.md"
+      - ".github/ISSUE_TEMPLATE/**"
+      - ".github/FUNDING.yml"
+
+  pull_request:
+    branches: [main, master]
+    paths-ignore:
+      - "**.md"
+
+  # Allow manually triggering a build and optionally overriding the SDK version
+  workflow_dispatch:
+    inputs:
+      sdk_version:
+        description: "OpenWrt SDK version (e.g. 25.12.4)"
+        default: "25.12.4"
+        required: false
+      debug:
+        description: "Enable verbose build output"
+        type: boolean
+        default: false
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Global environment
+# ─────────────────────────────────────────────────────────────────────────────
+env:
+  # SDK version – workflow_dispatch input takes priority, otherwise use default
+  SDK_VERSION: ${{ github.event.inputs.sdk_version || '25.12.4' }}
+
+  # SDK target triple (x86/64 SDK compiles architecture-independent packages)
+  SDK_TARGET: x86/64
+  SDK_HOST_ARCH: x86_64
+
+  # Package metadata
+  PACKAGE_NAME: luci-app-sing-box-server
+  I18N_PACKAGE: luci-i18n-sing-box-server-zh-cn
+
+  # Build verbosity: 's' (silent) by default, 'sc' when debug is enabled
+  BUILD_V: ${{ (github.event.inputs.debug == 'true') && 'sc' || 's' }}
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Jobs
+# ─────────────────────────────────────────────────────────────────────────────
+jobs:
+  # ═══════════════════════════════════════════════════════════════════════════
+  # Job 1 – Build the .apk package
+  # ═══════════════════════════════════════════════════════════════════════════
+  build:
+    name: "Build  ·  OpenWrt ${{ github.event.inputs.sdk_version || '25.12.4' }}"
+    runs-on: ubuntu-22.04
+    timeout-minutes: 60
+
+    outputs:
+      version: ${{ steps.meta.outputs.version }}
+
+    steps:
+      # ── Checkout ───────────────────────────────────────────────────────────
+      - name: Checkout source
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0   # full history so git describe works for version tags
+
+      # ── Package metadata ───────────────────────────────────────────────────
+      - name: Extract package metadata
+        id: meta
+        run: |
+          if [[ "${GITHUB_REF}" == refs/tags/v* ]]; then
+            VERSION="${GITHUB_REF_NAME}"          # e.g. v1.0.2
+          else
+            SHORT=$(git rev-parse --short HEAD)
+            VERSION="${{ env.SDK_VERSION }}-${SHORT}"
+          fi
+          echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
+          echo "Package version: ${VERSION}"
+
+      # ── Host dependencies ──────────────────────────────────────────────────
+      - name: Install host build dependencies
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends \
+            build-essential \
+            gawk \
+            gcc-multilib \
+            gettext \
+            git \
+            libncurses-dev \
+            libssl-dev \
+            python3 \
+            rsync \
+            unzip \
+            wget \
+            zstd
+
+      # ── SDK – download & cache ─────────────────────────────────────────────
+      - name: Restore SDK archive from cache
+        id: sdk-cache
+        uses: actions/cache@v4
+        with:
+          path: sdk.tar.zst
+          # Cache key includes version so a new release forces a fresh download
+          key: openwrt-sdk-${{ env.SDK_VERSION }}-${{ env.SDK_HOST_ARCH }}-v1
+
+      - name: Download OpenWrt SDK
+        if: steps.sdk-cache.outputs.cache-hit != 'true'
+        run: |
+          SDK_BASE="https://downloads.openwrt.org/releases/${SDK_VERSION}/targets/${SDK_TARGET}"
+          echo "Fetching SDK index from: ${SDK_BASE}/"
+
+          SDK_FILE=$(
+            wget -qO- "${SDK_BASE}/" \
+              | grep -oP '(?<=href=")openwrt-sdk-[^"]+Linux-x86_64\.tar\.zst(?=")' \
+              | head -1
+          )
+
+          if [ -z "${SDK_FILE}" ]; then
+            echo "::error::Could not find SDK archive at ${SDK_BASE}/"
+            exit 1
+          fi
+
+          echo "Downloading: ${SDK_BASE}/${SDK_FILE}"
+          wget --progress=dot:giga "${SDK_BASE}/${SDK_FILE}" -O sdk.tar.zst
+
+      - name: Extract SDK
+        run: |
+          echo "Extracting SDK archive…"
+          tar --zstd -xf sdk.tar.zst
+          # Rename to a fixed path so all later steps stay simple
+          mv openwrt-sdk-*/ openwrt-sdk/
+          echo "SDK contents:"
+          ls openwrt-sdk/
+
+      # ── Feeds – luci feed & cache ──────────────────────────────────────────
+      - name: Restore luci feed from cache
+        id: luci-cache
+        uses: actions/cache@v4
+        with:
+          path: openwrt-sdk/feeds/luci
+          # Keyed on SDK version + the feed config so we re-fetch when it changes
+          key: >-
+            luci-feed-${{ env.SDK_VERSION }}-${{
+              hashFiles('openwrt-sdk/feeds.conf.default') }}-v1
+
+      - name: Update luci feed (clone from upstream)
+        if: steps.luci-cache.outputs.cache-hit != 'true'
+        run: |
+          cd openwrt-sdk
+          echo "Updating luci feed…"
+          ./scripts/feeds update luci
+
+      # ── Inject our package into the feed ──────────────────────────────────
+      - name: Install package source into luci feed
+        run: |
+          DEST="openwrt-sdk/feeds/luci/applications/${PACKAGE_NAME}"
+          mkdir -p "${DEST}"
+
+          # rsync: copy everything except VCS and CI metadata
+          rsync -a \
+            --exclude='.git'    \
+            --exclude='.github' \
+            "${GITHUB_WORKSPACE}/" "${DEST}/"
+
+          echo "Installed at: ${DEST}"
+          echo ""
+          echo "─── Directory layout ───────────────────────────"
+          find "${DEST}" -maxdepth 3 | sort
+          echo ""
+          echo "─── Makefile ───────────────────────────────────"
+          cat "${DEST}/Makefile"
+
+      - name: Register package with OpenWrt feeds system
+        run: |
+          cd openwrt-sdk
+          # Refresh the package index so our newly added package is recognised
+          ./scripts/feeds update -i
+          # Create the package/feeds/luci/luci-app-sing-box-server symlink
+          ./scripts/feeds install "${PACKAGE_NAME}"
+
+      # ── SDK config ────────────────────────────────────────────────────────
+      - name: Generate SDK .config
+        run: |
+          cd openwrt-sdk
+
+          # Enable our package and its i18n companion (as modules)
+          cat >> .config <<EOF
+          CONFIG_PACKAGE_${PACKAGE_NAME}=m
+          CONFIG_PACKAGE_${I18N_PACKAGE}=m
+          EOF
+
+          make defconfig
+
+          echo ""
+          echo "─── Package entries in .config ──────────────────"
+          grep -E "sing.box.server|sing_box_server" .config || echo "(none found – will still compile)"
+
+      # ── Compile ───────────────────────────────────────────────────────────
+      - name: Compile package
+        run: |
+          cd openwrt-sdk
+          echo "Building ${PACKAGE_NAME}…"
+
+          # Compile the main package (luci.mk also generates i18n sub-packages)
+          make "package/${PACKAGE_NAME}/compile" \
+            "V=${BUILD_V}" \
+            2>&1 | tee build.log
+
+          BUILD_STATUS=${PIPESTATUS[0]}
+
+          echo ""
+          echo "─── Build log tail ──────────────────────────────"
+          tail -30 build.log
+
+          exit "${BUILD_STATUS}"
+
+      # ── Upload build log on failure (always useful for debugging) ─────────
+      - name: Upload build log (failure only)
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-log-${{ github.sha }}
+          path: openwrt-sdk/build.log
+          retention-days: 7
+
+      # ── Collect output packages ───────────────────────────────────────────
+      - name: Collect output packages
+        id: collect
+        run: |
+          mkdir -p dist
+
+          echo "Searching for generated packages…"
+          find openwrt-sdk/bin -type f \( -name "*.apk" -o -name "*.ipk" \) \
+            | grep -E "sing.box.server|sing_box_server" \
+            | sort \
+            | while IFS= read -r f; do
+                echo "  Found: $f"
+                cp "$f" dist/
+              done
+
+          if [ -z "$(ls dist/)" ]; then
+            echo "::error::No output packages were found – check the build log"
+            exit 1
+          fi
+
+          echo ""
+          echo "─── Output packages ─────────────────────────────"
+          ls -lh dist/
+
+          echo "count=$(ls dist/ | wc -l)" >> "$GITHUB_OUTPUT"
+
+      # ── Checksums ─────────────────────────────────────────────────────────
+      - name: Generate SHA256 checksums
+        run: |
+          cd dist
+          sha256sum * > SHA256SUMS
+          echo "─── SHA256SUMS ──────────────────────────────────"
+          cat SHA256SUMS
+
+      # ── Upload artifact (every build) ─────────────────────────────────────
+      - name: Upload packages as workflow artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ env.PACKAGE_NAME }}-${{ steps.meta.outputs.version }}
+          path: dist/
+          if-no-files-found: error
+          retention-days: 30
+
+      # ── GitHub Release (tag push only) ─────────────────────────────────────
+      - name: Create GitHub Release
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          name: "${{ env.PACKAGE_NAME }} ${{ steps.meta.outputs.version }}"
+          tag_name: ${{ github.ref_name }}
+          files: dist/*
+          generate_release_notes: true
+          draft: false
+          # Mark as pre-release if the tag contains rc / alpha / beta
+          prerelease: >-
+            ${{
+              contains(github.ref_name, 'rc')    ||
+              contains(github.ref_name, 'alpha') ||
+              contains(github.ref_name, 'beta')
+            }}
+          body: |
+            ## Installation
+
+            ### OpenWrt 25.12 (apk)
+            ```sh
+            # Copy the .apk file to your router, then:
+            apk add --allow-untrusted luci-app-sing-box-server-*.apk
+            ```
+
+            ### Dependencies
+            The following packages must be installed on the router:
+            ```sh
+            apk add sing-box luci-compat luci-lua-runtime
+            ```
+
+            ### SHA256 checksums
+            See `SHA256SUMS` in the release assets.
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # Job 2 – Lint: static Lua syntax check (runs in parallel with build)
+  # ═══════════════════════════════════════════════════════════════════════════
+  lint:
+    name: Lint Lua sources
+    runs-on: ubuntu-22.04
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: Install Lua and luacheck
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends lua5.1 luarocks
+          sudo luarocks install luacheck
+
+      - name: Run luacheck
+        run: |
+          # Ignore globals that are injected by the LuCI CBI/controller environment
+          luacheck luasrc/ \
+            --globals \
+              Map TypedSection NamedSection DummyValue Flag Value ListValue \
+              DynamicList Template cbi call entry firstchild \
+              translate _ token uci luci nixio arg \
+              module package \
+            --no-unused-args \
+            --max-line-length 120 \
+            || true          # luacheck exits non-zero on warnings; treat as advisory
+
+      - name: Check for common shell issues in init.d
+        run: |
+          bash -n root/etc/init.d/sing_box_server \
+            && echo "init.d syntax OK" \
+            || { echo "::error::init.d script has syntax errors"; exit 1; }
+
+          bash -n root/usr/share/sing_box_server/firewall.include \
+            && echo "firewall.include syntax OK" \
+            || { echo "::error::firewall.include has syntax errors"; exit 1; }
