@@ -163,10 +163,7 @@ jobs:
           mkdir -p "${DEST}"
 
           # rsync: copy everything except VCS and CI metadata
-          rsync -a \
-            --exclude='.git'    \
-            --exclude='.github' \
-            "${GITHUB_WORKSPACE}/" "${DEST}/"
+          ln -snf "${GITHUB_WORKSPACE}" "${DEST}"
 
           echo "Installed at: ${DEST}"
           echo ""
@@ -190,10 +187,8 @@ jobs:
           cd openwrt-sdk
 
           # Enable our package and its i18n companion (as modules)
-          cat >> .config <<EOF
-          CONFIG_PACKAGE_${PACKAGE_NAME}=m
-          CONFIG_PACKAGE_${I18N_PACKAGE}=m
-          EOF
+          printf 'CONFIG_PACKAGE_%s=m\nCONFIG_PACKAGE_%s=m\n' \
+            "${PACKAGE_NAME}" "${I18N_PACKAGE}" >> .config
 
           make defconfig
 
