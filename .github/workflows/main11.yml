@@ -163,7 +163,14 @@ jobs:
           mkdir -p "${DEST}"
 
           # rsync: copy everything except VCS and CI metadata
-          ln -snf "${GITHUB_WORKSPACE}" "${DEST}"
+          PKG_SRC=$(
+            find "${GITHUB_WORKSPACE}" -maxdepth 2 -name "Makefile" \
+              -not -path "*/openwrt-sdk/*" \
+              | xargs grep -l "luci\.mk" 2>/dev/null \
+              | head -1 \
+              | xargs -I{} dirname {}
+          )
+          ln -snf "${PKG_SRC}" "${DEST}"
 
           echo "Installed at: ${DEST}"
           echo ""
