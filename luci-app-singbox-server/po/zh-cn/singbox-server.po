@@ -1,0 +1,86 @@
+msgid "Sing-box Server"
+msgstr "Sing-box 服务端"
+
+msgid "Status"
+msgstr "状态"
+
+msgid "Configuration"
+msgstr "配置"
+
+msgid "Sing-box Server Configuration"
+msgstr "Sing-box 服务端配置"
+
+msgid "Manage multiple Sing-box server instances. Each instance runs independently with its own configuration file and log."
+msgstr "管理多个 Sing-box 服务端实例。每个实例使用独立的配置文件和日志运行。"
+
+msgid "Server Instances"
+msgstr "服务端实例"
+
+msgid "Enable"
+msgstr "启用"
+
+msgid "Config File"
+msgstr "配置文件"
+
+msgid "Log File"
+msgstr "日志文件"
+
+msgid "Log Level"
+msgstr "日志等级"
+
+msgid "Sing-box Server Status"
+msgstr "Sing-box 服务端状态"
+
+msgid "Server Instance Overview"
+msgstr "服务端实例概览"
+
+msgid "Instance"
+msgstr "实例"
+
+msgid "Enabled"
+msgstr "已启用"
+
+msgid "Running"
+msgstr "运行中"
+
+msgid "Stopped"
+msgstr "已停止"
+
+msgid "Actions"
+msgstr "操作"
+
+msgid "Start"
+msgstr "启动"
+
+msgid "Stop"
+msgstr "停止"
+
+msgid "Restart"
+msgstr "重启"
+
+msgid "Disable"
+msgstr "禁用"
+
+msgid "Log"
+msgstr "日志"
+
+msgid "Global Actions"
+msgstr "全局操作"
+
+msgid "Start All Enabled"
+msgstr "启动全部已启用实例"
+
+msgid "Stop All"
+msgstr "停止全部"
+
+msgid "Restart All Enabled"
+msgstr "重启全部已启用实例"
+
+msgid "Sing-box Server Log"
+msgstr "Sing-box 服务端日志"
+
+msgid "Back to Status"
+msgstr "返回状态页"
+
+msgid "No log available"
+msgstr "暂无日志"

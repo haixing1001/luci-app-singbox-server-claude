@@ -14,10 +14,14 @@ on:
       pkg_name:
         description: '要编译的包名，多个用空格分隔'
         required: true
+        default: 'luci-app-singbox-server'
       prerelease:
         description: 'Mark as pre-release'
         required: false
         default: 'false'
+
+permissions:
+  contents: write
 
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
@@ -36,24 +40,18 @@ jobs:
           - aarch64_cortex-a53
           - x86_64
         sdk:
-         # - "24.10"
-          - "25.12"
-
+          - '24.10'
+          - '25.12'
     steps:
       - name: Checkout this repo
         uses: actions/checkout@v4
 
       - name: Prepare feed directory
         run: |
-          git clone --depth=1 -b "$PKG_BRANCH" \
-            "https://github.com/${PKG_REPO}.git" /tmp/pkg_src
-
+          git clone --depth=1 -b "$PKG_BRANCH" "https://github.com/${PKG_REPO}.git" /tmp/pkg_src
           FEED_DIR="${GITHUB_WORKSPACE}/feed"
           mkdir -p "${FEED_DIR}"
 
-          # 判断仓库根目录是否为单包目录（含 PKG_NAME 定义的 Makefile）
-          # 是单包目录：需要为每个包名创建子目录（多包时从同一根目录复制）
-          # 是 feed 目录：直接复制整个目录结构即可
           if grep -qE '^\s*PKG_NAME\s*:?=' /tmp/pkg_src/Makefile 2>/dev/null; then
             echo "检测到根目录是单包目录，为每个包名创建子目录..."
             for pkg in $PKG_NAME; do
@@ -67,7 +65,7 @@ jobs:
 
           echo "FEED_DIR=${FEED_DIR}" >> "$GITHUB_ENV"
           echo "Feed 目录内容："
-          ls -la "${FEED_DIR}/"
+          find "${FEED_DIR}" -maxdepth 3 -type f | sort
 
       - name: Build packages
         uses: openwrt/gh-action-sdk@main
@@ -85,53 +83,20 @@ jobs:
           ARCH="${{ matrix.arch }}"
           mkdir -p dist/release dist/feed
 
-          # IPK：release 加安全文件名，feed 保留原名
-          for f in bin/packages/"${ARCH}"/custom/*.ipk; do
+          for f in bin/packages/"${ARCH}"/custom/*.{ipk,apk}; do
             [ -f "$f" ] || continue
-            [[ "$(basename "$f")" == Packages* ]] && continue
-            
-            # 【仅保留简体中文】如果是语言包，且不包含 zh-cn、zh_hans 或 zh-Hans，则直接跳过
-            if [[ "$(basename "$f")" == *"luci-i18n-"* ]]; then
-              if [[ "$(basename "$f")" != *"zh-cn"* ]] && [[ "$(basename "$f")" != *"zh_hans"* ]] && [[ "$(basename "$f")" != *"zh-Hans"* ]]; then
-                echo "过滤非简体中文包: $(basename "$f")"
-                continue
-              fi
-            fi
-
-            base=$(basename "$f" .ipk)
+            case "$(basename "$f")" in Packages*|APKINDEX*) continue ;; esac
+            base="$(basename "$f")"
             safe="${base//\~/.}"
-            cp -v "$f" "dist/release/${safe}.ipk"
-            cp -v "$f" "dist/feed/"
+            cp -v "$f" "dist/release/${safe}"
+            cp -v "$f" "dist/feed/${safe}"
           done
 
-          # APK：release 加架构后缀，feed 保留原名
-          for f in bin/packages/"${ARCH}"/custom/*.apk; do
-            [ -f "$f" ] || continue
-            [[ "$(basename "$f")" == Packages* ]] && continue
-            
-            # 【仅保留简体中文】如果是语言包，且不包含 zh-cn、zh_hans 或 zh-Hans，则直接跳过
-            if [[ "$(basename "$f")" == *"luci-i18n-"* ]]; then
-              if [[ "$(basename "$f")" != *"zh-cn"* ]] && [[ "$(basename "$f")" != *"zh_hans"* ]] && [[ "$(basename "$f")" != *"zh-Hans"* ]]; then
-                echo "过滤非简体中文包: $(basename "$f")"
-                continue
-              fi
-            fi
-
-            base=$(basename "$f" .apk)
-            safe="${base//\~/.}"
-            cp -v "$f" "dist/release/${safe}-${ARCH}.apk"
-            cp -v "$f" "dist/feed/${safe}.apk"
-          done
-
-          # Feed 索引文件（仅 feed 目录）
-          for f in \
-            bin/packages/"${ARCH}"/custom/Packages* \
-            bin/packages/"${ARCH}"/custom/APKINDEX*; do
+          for f in bin/packages/"${ARCH}"/custom/Packages* bin/packages/"${ARCH}"/custom/APKINDEX*; do
             [ -f "$f" ] || continue
             cp -v "$f" dist/feed/
           done
 
-          echo "--- dist/release 内容 ---"
           ls -lh dist/release/ || true
 
       - name: Upload artifact
@@ -147,7 +112,6 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: write
-
     steps:
       - name: Checkout this repo
         uses: actions/checkout@v4
@@ -163,14 +127,12 @@ jobs:
       - name: Flatten release files
         run: |
           mkdir -p dist
-          find all-artifacts -path "*/release/*" -type f -exec cp -v {} dist/ \;
-          echo "--- dist 内容 ---"
+          find all-artifacts -path '*/release/*' -type f -exec cp -v {} dist/ \;
           ls -lh dist/ || true
 
       - name: Determine tag
         id: meta
         run: |
-          # 取第一个包名作为 tag 前缀
           FIRST_PKG=$(echo "$PKG_NAME" | awk '{print $1}')
           DATETIME=$(date +%Y.%m.%d.%H%M)
           echo "tag=${FIRST_PKG}-${DATETIME}" >> "$GITHUB_OUTPUT"
@@ -182,41 +144,18 @@ jobs:
           REPO: ${{ github.repository }}
         run: |
           BASE="https://github.com/${REPO}/releases/download/${TAG}"
-          ARCHS="aarch64_cortex-a53 x86_64"
-
           {
-            echo "## 📦 SDK 24.10 · IPK"
+            echo "## OpenWrt packages"
             echo ""
-            echo "| 架构 | 包文件 |"
-            echo "| :--- | :--- |"
-
-            for arch in $ARCHS; do
-              for f in dist/*_all.ipk dist/*_${arch}.ipk; do
-                [ -f "$f" ] || continue
-                link="[$(basename "$f")](${BASE}/$(basename "$f"))"
-                echo "| \`${arch}\` | ${link} |"
-              done
+            echo "| 包文件 |"
+            echo "| :--- |"
+            for f in dist/*; do
+              [ -f "$f" ] || continue
+              echo "| [$(basename "$f")](${BASE}/$(basename "$f")) |"
             done
-
             echo ""
-            echo "## 📦 SDK 25.12 · APK"
-            echo ""
-            echo "| 架构 | 包文件 |"
-            echo "| :--- | :--- |"
-
-            for arch in $ARCHS; do
-              for f in dist/*-${arch}.apk; do
-                [ -f "$f" ] || continue
-                link="[$(basename "$f")](${BASE}/$(basename "$f"))"
-                echo "| \`${arch}\` | ${link} |"
-              done
-            done
-
-            echo ""
-            echo "---"
             echo "> 包名：\`${PKG_NAME}\` · 源码：[${PKG_REPO}](https://github.com/${PKG_REPO}) · 分支 \`${PKG_BRANCH}\`"
           } > release_notes.md
-
           cat release_notes.md
 
       - name: Publish Release

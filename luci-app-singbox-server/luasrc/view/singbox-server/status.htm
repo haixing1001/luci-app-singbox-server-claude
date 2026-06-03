@@ -1,71 +1,50 @@
 <%+header%>
-<h2><%:Sing-box Server Status%></h2>
 
-<fieldset class="cbi-section">
-	<legend><%:Server Instance Overview%></legend>
-	<table class="cbi-section-table" style="width:100%;">
-		<tr class="cbi-section-table-titles">
-			<th><%:Instance%></th>
-			<th><%:Enabled%></th>
-			<th><%:Status%></th>
-			<th><%:Config File%></th>
-			<th><%:Log File%></th>
-			<th><%:Log Level%></th>
-			<th><%:Actions%></th>
-		</tr>
-		<% for i, inst in ipairs(instances) do %>
-		<tr class="cbi-section-table-row">
-			<td class="cbi-value-field"><strong><%=inst.name%></strong></td>
-			<td class="cbi-value-field">
-				<% if inst.enabled == "1" then %>
-					<span style="color:green;">✔</span>
-				<% else %>
-					<span style="color:grey;">✘</span>
-				<% end %>
-			</td>
-			<td class="cbi-value-field">
-				<% if inst.running then %>
-					<span style="color:green; font-weight:bold;"><%:Running%></span>
-				<% else %>
-					<span style="color:red; font-weight:bold;"><%:Stopped%></span>
-				<% end %>
-			</td>
-			<td class="cbi-value-field"><%=inst.config_file%></td>
-			<td class="cbi-value-field"><%=inst.log_file%></td>
-			<td class="cbi-value-field"><%=inst.log_level%></td>
-			<td class="cbi-value-field">
-				<div class="cbi-button-group">
-					<% if not inst.running then %>
-						<input type="button" class="cbi-button cbi-button-apply" value="<%:Start%>"
-							onclick="location.href='<%=luci.dispatcher.build_url('admin/services/singbox-server/start')%>?name=<%=inst.name%>'" />
-					<% else %>
-						<input type="button" class="cbi-button cbi-button-reset" value="<%:Stop%>"
-							onclick="location.href='<%=luci.dispatcher.build_url('admin/services/singbox-server/stop')%>?name=<%=inst.name%>'" />
-					<% end %>
-					<input type="button" class="cbi-button cbi-button-reload" value="<%:Restart%>"
-						onclick="location.href='<%=luci.dispatcher.build_url('admin/services/singbox-server/restart')%>?name=<%=inst.name%>'" />
-					<% if inst.enabled == "1" then %>
-						<input type="button" class="cbi-button cbi-button-remove" value="<%:Disable%>"
-							onclick="location.href='<%=luci.dispatcher.build_url('admin/services/singbox-server/disable')%>?name=<%=inst.name%>'" />
-					<% else %>
-						<input type="button" class="cbi-button cbi-button-add" value="<%:Enable%>"
-							onclick="location.href='<%=luci.dispatcher.build_url('admin/services/singbox-server/enable')%>?name=<%=inst.name%>'" />
-					<% end %>
-					<input type="button" class="cbi-button" value="<%:Log%>"
-						onclick="window.open('<%=luci.dispatcher.build_url('admin/services/singbox-server/log')%>?name=<%=inst.name%>', '_blank')" />
-				</div>
-			</td>
-		</tr>
-		<% end %>
-	</table>
-</fieldset>
+<h2 name="content"><%:Sing-box Server Status%></h2>
 
-<fieldset class="cbi-section">
-	<legend><%:Global Actions%></legend>
-	<div style="padding:10px;">
-		<input type="button" class="cbi-button cbi-button-apply" value="<%:Start All Enabled%>" onclick="location.href='<%=luci.dispatcher.build_url('admin/services/singbox-server/start')%>'" />
-		<input type="button" class="cbi-button cbi-button-reset" value="<%:Stop All%>" onclick="location.href='<%=luci.dispatcher.build_url('admin/services/singbox-server/stop')%>'" />
-		<input type="button" class="cbi-button cbi-button-reload" value="<%:Restart All%>" onclick="location.href='<%=luci.dispatcher.build_url('admin/services/singbox-server/restart')%>'" />
-	</div>
-</fieldset>
+<div class="cbi-map-descr"><%:Server Instance Overview%></div>
+
+<table class="table cbi-section-table">
+	<tr class="tr cbi-section-table-titles">
+		<th class="th"><%:Instance%></th>
+		<th class="th"><%:Enabled%></th>
+		<th class="th"><%:Status%></th>
+		<th class="th"><%:Config File%></th>
+		<th class="th"><%:Log File%></th>
+		<th class="th"><%:Log Level%></th>
+		<th class="th"><%:Actions%></th>
+	</tr>
+	<% for _, inst in ipairs(instances) do %>
+	<tr class="tr cbi-section-table-row">
+		<td class="td"><%=pcdata(inst.name)%></td>
+		<td class="td"><% if inst.enabled == "1" then %>✔<% else %>✘<% end %></td>
+		<td class="td"><% if inst.running then %><%:Running%><% else %><%:Stopped%><% end %></td>
+		<td class="td"><code><%=pcdata(inst.config_file)%></code></td>
+		<td class="td"><code><%=pcdata(inst.log_file)%></code></td>
+		<td class="td"><%=pcdata(inst.log_level)%></td>
+		<td class="td">
+			<% if inst.running then %>
+				<a class="btn cbi-button cbi-button-remove" href="<%=url('admin/services/singbox-server/stop')%>?name=<%=urlencode(inst.name)%>"><%:Stop%></a>
+			<% else %>
+				<a class="btn cbi-button cbi-button-apply" href="<%=url('admin/services/singbox-server/start')%>?name=<%=urlencode(inst.name)%>"><%:Start%></a>
+			<% end %>
+			<a class="btn cbi-button cbi-button-reload" href="<%=url('admin/services/singbox-server/restart')%>?name=<%=urlencode(inst.name)%>"><%:Restart%></a>
+			<% if inst.enabled == "1" then %>
+				<a class="btn cbi-button" href="<%=url('admin/services/singbox-server/disable')%>?name=<%=urlencode(inst.name)%>"><%:Disable%></a>
+			<% else %>
+				<a class="btn cbi-button" href="<%=url('admin/services/singbox-server/enable')%>?name=<%=urlencode(inst.name)%>"><%:Enable%></a>
+			<% end %>
+			<a class="btn cbi-button" href="<%=url('admin/services/singbox-server/log')%>?name=<%=urlencode(inst.name)%>"><%:Log%></a>
+		</td>
+	</tr>
+	<% end %>
+</table>
+
+<h3><%:Global Actions%></h3>
+<p>
+	<a class="btn cbi-button cbi-button-apply" href="<%=url('admin/services/singbox-server/start')%>"><%:Start All Enabled%></a>
+	<a class="btn cbi-button cbi-button-remove" href="<%=url('admin/services/singbox-server/stop')%>"><%:Stop All%></a>
+	<a class="btn cbi-button cbi-button-reload" href="<%=url('admin/services/singbox-server/restart')%>"><%:Restart All Enabled%></a>
+</p>
+
 <%+footer%>
