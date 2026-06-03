@@ -1,0 +1,27 @@
+{
+  "luci-app-singbox-server": {
+    "description": "Sing-Box server configuration and control access",
+    "read": {
+      "uci": [ "singbox_server" ],
+      "file": {
+        "/var/log/singbox_server.log": [ "read" ],
+        "/var/log/singbox_server_*.log": [ "read" ],
+        "/tmp/etc/singbox_server/config.json": [ "read" ]
+      },
+      "ubus": {
+        "service": [ "list" ]
+      }
+    },
+    "write": {
+      "uci": [ "singbox_server" ],
+      "file": {
+        "/var/log/singbox_server.log": [ "write" ],
+        "/var/log/singbox_server_*.log": [ "write" ]
+      },
+      "ubus": {
+        "service": [ "start", "stop", "restart", "reload", "list" ],
+        "singbox_server": [ "*" ]
+      }
+    }
+  }
+}

@@ -1,8 +1,19 @@
-config server 'default'
-    option enable '0'
-    option remarks 'My VLESS Reality Server'
-    option protocol 'vless'
-    option port '443'
-    option tls '1'
-    option reality '1'
-    option flow 'xtls-rprx-vision'
+config global 'global'
+	option enabled '0'
+	option log_level 'warn'
+	option log_output '/var/log/singbox_server.log'
+
+# Example server entry (uncomment and fill to use):
+#
+# config server
+#	option enabled '0'
+#	option remarks '我的节点'
+#	option protocol 'vmess'
+#	option port '10086'
+#	option uuid 'xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx'
+#	option tls '0'
+#	option transport 'tcp'
+#	option accept_proxy_protocol '0'
+#	option tcp_fast_open '0'
+#	option local_only '0'
+#	option log '0'
