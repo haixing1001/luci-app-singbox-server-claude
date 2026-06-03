@@ -1,7 +1,15 @@
 #!/bin/sh
 
+. /lib/functions.sh
+
 CONFIG=singbox_server
 LOGDIR=/tmp/log
+MAINLOG=/tmp/log/singbox_server.log
+
+append_log() {
+	mkdir -p "$LOGDIR"
+	echo "$(date '+%Y-%m-%d %H:%M:%S'): $*" >> "$MAINLOG"
+}
 
 json_escape() {
 	printf '%s' "$1" | sed 's/\\/\\\\/g; s/"/\\"/g; s/\r//g; :a;N;$!ba;s/\n/\\n/g'
@@ -20,13 +28,13 @@ rand_pass() {
 
 normalize_protocol() {
 	local p
-	p="$(printf '%s' "$1" | tr 'A-Z' 'a-z')"
+	p="$(printf '%s' "$1" | tr 'A-Z' 'a-z' | tr '_' '-')"
 	case "$p" in
-		vmess|xray-vmess|v2ray-vmess) echo "vmess" ;;
-		vless|xray-vless) echo "vless" ;;
-		trojan|xray-trojan) echo "trojan" ;;
-		hysteria2|hy2|hysteria) echo "hysteria2" ;;
-		tuic) echo "tuic" ;;
+		vmess|xray-vmess|v2ray-vmess|sing-box-vmess|singbox-vmess) echo "vmess" ;;
+		vless|xray-vless|sing-box-vless|singbox-vless) echo "vless" ;;
+		trojan|xray-trojan|sing-box-trojan|singbox-trojan) echo "trojan" ;;
+		hysteria2|hy2|hysteria|sing-box-hysteria2|singbox-hysteria2) echo "hysteria2" ;;
+		tuic|sing-box-tuic|singbox-tuic) echo "tuic" ;;
 		*) echo "vmess" ;;
 	esac
 }
@@ -37,6 +45,7 @@ normalize_transport() {
 	case "$t" in
 		websocket|ws) echo "ws" ;;
 		grpc|gun) echo "grpc" ;;
+		tcp|none|direct|'') echo "tcp" ;;
 		*) echo "tcp" ;;
 	esac
 }
@@ -60,6 +69,44 @@ ensure_secret() {
 	esac
 }
 
+validate_config_fields() {
+	local section="$1" proto="$2" tls reality cert_path key_path server_name reality_private_key
+	config_get_bool tls "$section" tls 0
+	config_get_bool reality "$section" reality 0
+	config_get cert_path "$section" cert_path ""
+	config_get key_path "$section" key_path ""
+	config_get server_name "$section" server_name ""
+	config_get reality_private_key "$section" reality_private_key ""
+
+	case "$proto" in
+		hysteria2|tuic)
+			if [ "$tls" != "1" ]; then
+				append_log "$section 配置错误：$proto 服务端必须启用 TLS"
+				return 1
+			fi
+			if [ -z "$cert_path" ] || [ -z "$key_path" ]; then
+				append_log "$section 配置错误：$proto 必须填写证书路径和私钥路径"
+				return 1
+			fi
+			;;
+	esac
+
+	if [ "$tls" = "1" ] && [ "$reality" != "1" ]; then
+		if [ -z "$cert_path" ] || [ -z "$key_path" ]; then
+			append_log "$section 配置错误：启用 TLS 时必须填写证书路径和私钥路径"
+			return 1
+		fi
+	fi
+
+	if [ "$proto" = "vless" ] && [ "$reality" = "1" ]; then
+		if [ -z "$server_name" ] || [ -z "$reality_private_key" ]; then
+			append_log "$section 配置错误：Reality 必须填写 Server Name 和 Reality 私钥"
+			return 1
+		fi
+	fi
+	return 0
+}
+
 make_tls_json() {
 	local section="$1" tls reality server_name cert_path key_path reality_private_key reality_short_id
 	config_get_bool tls "$section" tls 0
@@ -76,7 +123,11 @@ make_tls_json() {
 	reality_private_key="$(json_escape "$reality_private_key")"
 	reality_short_id="$(json_escape "$reality_short_id")"
 	if [ "$reality" = "1" ]; then
-		printf ',"tls":{"enabled":true,"server_name":"%s","reality":{"enabled":true,"handshake":{"server":"%s","server_port":443},"private_key":"%s","short_id":["%s"]}}' "$server_name" "$server_name" "$reality_private_key" "$reality_short_id"
+		if [ -n "$reality_short_id" ]; then
+			printf ',"tls":{"enabled":true,"server_name":"%s","reality":{"enabled":true,"handshake":{"server":"%s","server_port":443},"private_key":"%s","short_id":["%s"]}}' "$server_name" "$server_name" "$reality_private_key" "$reality_short_id"
+		else
+			printf ',"tls":{"enabled":true,"server_name":"%s","reality":{"enabled":true,"handshake":{"server":"%s","server_port":443},"private_key":"%s"}}' "$server_name" "$server_name" "$reality_private_key"
+		fi
 	else
 		printf ',"tls":{"enabled":true,"server_name":"%s","certificate_path":"%s","key_path":"%s"}' "$server_name" "$cert_path" "$key_path"
 	fi
@@ -86,11 +137,14 @@ make_transport_json() {
 	local section="$1" protocol="$2" transport ws_host ws_path grpc_service_name
 	config_get transport "$section" transport "tcp"
 	transport="$(normalize_transport "$transport")"
-	[ "$protocol" = "hysteria2" ] || [ "$protocol" = "tuic" ] && return 0
+	if [ "$protocol" = "hysteria2" ] || [ "$protocol" = "tuic" ]; then
+		return 0
+	fi
 	case "$transport" in
 		ws)
 			config_get ws_host "$section" ws_host ""
 			config_get ws_path "$section" ws_path "/"
+			[ -n "$ws_path" ] || ws_path="/"
 			ws_host="$(json_escape "$ws_host")"
 			ws_path="$(json_escape "$ws_path")"
 			if [ -n "$ws_host" ]; then
@@ -101,8 +155,20 @@ make_transport_json() {
 			;;
 		grpc)
 			config_get grpc_service_name "$section" grpc_service_name "grpc"
+			[ -n "$grpc_service_name" ] || grpc_service_name="grpc"
 			grpc_service_name="$(json_escape "$grpc_service_name")"
 			printf ',"transport":{"type":"grpc","service_name":"%s"}' "$grpc_service_name"
+			;;
+	esac
+}
+
+make_mux_json() {
+	local section="$1" proto="$2" mux
+	config_get_bool mux "$section" mux 0
+	[ "$mux" = "1" ] || return 0
+	case "$proto" in
+		vmess|vless|trojan)
+			printf ',"multiplex":{"enabled":true}'
 			;;
 	esac
 }
@@ -110,7 +176,7 @@ make_transport_json() {
 gen_config() {
 	local section="$1" out="$2"
 	config_load "$CONFIG"
-	local protocol listen_port listen log custom_config custom_json uuid password remarks
+	local protocol listen_port listen log custom_config custom_json uuid password remarks local_listen
 	config_get protocol "$section" protocol "vmess"
 	protocol="$(normalize_protocol "$protocol")"
 	config_get listen_port "$section" listen_port "4566"
@@ -127,6 +193,7 @@ gen_config() {
 		return $?
 	fi
 
+	validate_config_fields "$section" "$protocol" || return 1
 	ensure_secret "$section" "$protocol"
 	config_load "$CONFIG"
 	config_get uuid "$section" uuid ""
@@ -146,25 +213,23 @@ gen_config() {
 		printf '  "inbounds":[{'
 		case "$protocol" in
 			vmess)
-				printf '"type":"vmess","tag":"%s","listen":"%s","listen_port":%s,"users":[{"uuid":"%s","alterId":0}]' "$remarks" "$listen" "$listen_port" "$uuid"
+				printf '"type":"vmess","tag":"%s","listen":"%s","listen_port":%s,"users":[{"name":"%s","uuid":"%s","alterId":0}]' "$remarks" "$listen" "$listen_port" "$remarks" "$uuid"
 				;;
 			vless)
-				printf '"type":"vless","tag":"%s","listen":"%s","listen_port":%s,"users":[{"uuid":"%s"}]' "$remarks" "$listen" "$listen_port" "$uuid"
+				printf '"type":"vless","tag":"%s","listen":"%s","listen_port":%s,"users":[{"name":"%s","uuid":"%s"}]' "$remarks" "$listen" "$listen_port" "$remarks" "$uuid"
 				;;
 			trojan)
-				printf '"type":"trojan","tag":"%s","listen":"%s","listen_port":%s,"users":[{"password":"%s"}]' "$remarks" "$listen" "$listen_port" "$password"
+				printf '"type":"trojan","tag":"%s","listen":"%s","listen_port":%s,"users":[{"name":"%s","password":"%s"}]' "$remarks" "$listen" "$listen_port" "$remarks" "$password"
 				;;
 			hysteria2)
-				printf '"type":"hysteria2","tag":"%s","listen":"%s","listen_port":%s,"users":[{"password":"%s"}]' "$remarks" "$listen" "$listen_port" "$password"
+				printf '"type":"hysteria2","tag":"%s","listen":"%s","listen_port":%s,"users":[{"name":"%s","password":"%s"}]' "$remarks" "$listen" "$listen_port" "$remarks" "$password"
 				;;
 			tuic)
-				printf '"type":"tuic","tag":"%s","listen":"%s","listen_port":%s,"users":[{"uuid":"%s","password":"%s"}]' "$remarks" "$listen" "$listen_port" "$uuid" "$password"
+				printf '"type":"tuic","tag":"%s","listen":"%s","listen_port":%s,"users":[{"name":"%s","uuid":"%s","password":"%s"}]' "$remarks" "$listen" "$listen_port" "$remarks" "$uuid" "$password"
 				;;
-			*)
-				printf '"type":"vmess","tag":"%s","listen":"%s","listen_port":%s,"users":[{"uuid":"%s","alterId":0}]' "$remarks" "$listen" "$listen_port" "$uuid"
-				;;
-			esac
+		esac
 		make_tls_json "$section"
+		make_mux_json "$section" "$protocol"
 		make_transport_json "$section" "$protocol"
 		printf '}],\n'
 		printf '  "outbounds":[{"type":"direct","tag":"direct"}],\n'

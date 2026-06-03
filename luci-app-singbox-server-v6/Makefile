@@ -1,13 +1,13 @@
 include $(TOPDIR)/rules.mk
 
 PKG_NAME:=luci-app-singbox-server
-PKG_VERSION:=1.0.0
-PKG_RELEASE:=1
+PKG_VERSION:=1.0.2
+PKG_RELEASE:=0
 PKG_MAINTAINER:=haixing1001
 
 LUCI_TITLE:=LuCI support for sing-box server multi-instance
 LUCI_PKGARCH:=all
-LUCI_DEPENDS:=+luci-base +luci-compat +sing-box +ucode +ucode-mod-uci
+LUCI_DEPENDS:=+luci-base +luci-compat
 
 include $(TOPDIR)/feeds/luci/luci.mk
 

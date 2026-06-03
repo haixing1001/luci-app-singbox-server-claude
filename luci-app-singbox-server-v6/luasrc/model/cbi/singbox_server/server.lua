@@ -15,14 +15,8 @@ s = m:section(NamedSection, sid, "server")
 s.anonymous = true
 s.addremove = false
 
-function s.handle(self, state, data)
-	if state == FORM_VALID then
-		local reload = luci.http.formvalue("cbi.apply") or luci.http.formvalue("cbi.save")
-		if reload then
-			sys.call("/etc/init.d/singbox_server reload >/dev/null 2>&1 &")
-		end
-	end
-	return NamedSection.handle(self, state, data)
+function m.on_after_commit(self)
+	sys.call("/etc/init.d/singbox_server reload >/dev/null 2>&1 &")
 end
 
 o = s:option(Flag, "enabled", translate("启用"))
@@ -74,6 +68,7 @@ o.rmempty = false
 o = s:option(Value, "server_name", translate("TLS/Reality Server Name"))
 o.placeholder = "example.com"
 o:depends("tls", "1")
+o:depends("reality", "1")
 
 o = s:option(Value, "cert_path", translate("证书路径"))
 o.placeholder = "/etc/singbox/server.crt"

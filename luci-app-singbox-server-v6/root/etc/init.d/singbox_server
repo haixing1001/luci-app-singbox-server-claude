@@ -1,5 +1,8 @@
 #!/bin/sh /etc/rc.common
 
+. /lib/functions.sh
+. /lib/functions/procd.sh
+
 START=99
 STOP=10
 USE_PROCD=1
@@ -17,12 +20,14 @@ append_log() {
 
 check_config() {
 	local conf="$1" tmp="/tmp/singbox_server_check.$$"
-	# 不同 sing-box 版本 CLI 参数顺序不同：新版常用 check -c，部分 OpenWrt 版本需要 -c 在子命令前。
-	if "$BIN" check -c "$conf" >"$tmp" 2>&1; then
+	# OpenWrt 常见 sing-box 版本要求全局参数 -c 放在子命令前。
+	# 先使用兼容性最好的：sing-box -c <file> check。
+	if "$BIN" -c "$conf" check >"$tmp" 2>&1; then
 		rm -f "$tmp"
 		return 0
 	fi
-	if "$BIN" -c "$conf" check >"$tmp" 2>&1; then
+	# 兼容少数新版写法。
+	if "$BIN" check -c "$conf" >"$tmp" 2>&1; then
 		rm -f "$tmp"
 		return 0
 	fi
@@ -63,7 +68,7 @@ start_instance() {
 	fi
 
 	procd_open_instance "$section"
-	procd_set_param command /bin/sh -c "exec '$BIN' run -c '$conf' >> '/tmp/log/singbox_server_${section}.log' 2>&1 || exec '$BIN' -c '$conf' run >> '/tmp/log/singbox_server_${section}.log' 2>&1"
+	procd_set_param command "$BIN" -c "$conf" run
 	procd_set_param respawn 3600 5 5
 	procd_set_param file "/etc/config/$CONFIG"
 	procd_set_param stdout 1
