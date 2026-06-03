@@ -82,20 +82,53 @@ jobs:
           ARCH="${{ matrix.arch }}"
           mkdir -p dist/release dist/feed
 
-          for f in bin/packages/"${ARCH}"/custom/*.{ipk,apk}; do
+          # IPK：release 加安全文件名，feed 保留原名
+          for f in bin/packages/"${ARCH}"/custom/*.ipk; do
             [ -f "$f" ] || continue
-            case "$(basename "$f")" in Packages*|APKINDEX*) continue ;; esac
-            base="$(basename "$f")"
+            [[ "$(basename "$f")" == Packages* ]] && continue
+            
+            # 【仅保留简体中文】如果是语言包，且不包含 zh-cn、zh_hans 或 zh-Hans，则直接跳过
+            if [[ "$(basename "$f")" == *"luci-i18n-"* ]]; then
+              if [[ "$(basename "$f")" != *"zh-cn"* ]] && [[ "$(basename "$f")" != *"zh_hans"* ]] && [[ "$(basename "$f")" != *"zh-Hans"* ]]; then
+                echo "过滤非简体中文包: $(basename "$f")"
+                continue
+              fi
+            fi
+
+            base=$(basename "$f" .ipk)
             safe="${base//\~/.}"
-            cp -v "$f" "dist/release/${safe}"
-            cp -v "$f" "dist/feed/${safe}"
+            cp -v "$f" "dist/release/${safe}.ipk"
+            cp -v "$f" "dist/feed/"
           done
 
-          for f in bin/packages/"${ARCH}"/custom/Packages* bin/packages/"${ARCH}"/custom/APKINDEX*; do
+          # APK：release 加架构后缀，feed 保留原名
+          for f in bin/packages/"${ARCH}"/custom/*.apk; do
+            [ -f "$f" ] || continue
+            [[ "$(basename "$f")" == Packages* ]] && continue
+            
+            # 【仅保留简体中文】如果是语言包，且不包含 zh-cn、zh_hans 或 zh-Hans，则直接跳过
+            if [[ "$(basename "$f")" == *"luci-i18n-"* ]]; then
+              if [[ "$(basename "$f")" != *"zh-cn"* ]] && [[ "$(basename "$f")" != *"zh_hans"* ]] && [[ "$(basename "$f")" != *"zh-Hans"* ]]; then
+                echo "过滤非简体中文包: $(basename "$f")"
+                continue
+              fi
+            fi
+
+            base=$(basename "$f" .apk)
+            safe="${base//\~/.}"
+            cp -v "$f" "dist/release/${safe}-${ARCH}.apk"
+            cp -v "$f" "dist/feed/${safe}.apk"
+          done
+
+          # Feed 索引文件（仅 feed 目录）
+          for f in \
+            bin/packages/"${ARCH}"/custom/Packages* \
+            bin/packages/"${ARCH}"/custom/APKINDEX*; do
             [ -f "$f" ] || continue
             cp -v "$f" dist/feed/
           done
 
+          echo "--- dist/release 内容 ---"
           ls -lh dist/release/ || true
 
       - name: Upload artifact
@@ -111,6 +144,7 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: write
+
     steps:
       - name: Checkout this repo
         uses: actions/checkout@v4
@@ -126,12 +160,14 @@ jobs:
       - name: Flatten release files
         run: |
           mkdir -p dist
-          find all-artifacts -path '*/release/*' -type f -exec cp -v {} dist/ \;
+          find all-artifacts -path "*/release/*" -type f -exec cp -v {} dist/ \;
+          echo "--- dist 内容 ---"
           ls -lh dist/ || true
 
       - name: Determine tag
         id: meta
         run: |
+          # 取第一个包名作为 tag 前缀
           FIRST_PKG=$(echo "$PKG_NAME" | awk '{print $1}')
           DATETIME=$(date +%Y.%m.%d.%H%M)
           echo "tag=${FIRST_PKG}-${DATETIME}" >> "$GITHUB_OUTPUT"
@@ -143,18 +179,41 @@ jobs:
           REPO: ${{ github.repository }}
         run: |
           BASE="https://github.com/${REPO}/releases/download/${TAG}"
+          ARCHS="aarch64_cortex-a53 x86_64"
+
           {
-            echo "## OpenWrt packages"
+            echo "## 📦 SDK 24.10 · IPK"
             echo ""
-            echo "| 包文件 |"
-            echo "| :--- |"
-            for f in dist/*; do
-              [ -f "$f" ] || continue
-              echo "| [$(basename "$f")](${BASE}/$(basename "$f")) |"
+            echo "| 架构 | 包文件 |"
+            echo "| :--- | :--- |"
+
+            for arch in $ARCHS; do
+              for f in dist/*_all.ipk dist/*_${arch}.ipk; do
+                [ -f "$f" ] || continue
+                link="[$(basename "$f")](${BASE}/$(basename "$f"))"
+                echo "| \`${arch}\` | ${link} |"
+              done
             done
+
             echo ""
+            echo "## 📦 SDK 25.12 · APK"
+            echo ""
+            echo "| 架构 | 包文件 |"
+            echo "| :--- | :--- |"
+
+            for arch in $ARCHS; do
+              for f in dist/*-${arch}.apk; do
+                [ -f "$f" ] || continue
+                link="[$(basename "$f")](${BASE}/$(basename "$f"))"
+                echo "| \`${arch}\` | ${link} |"
+              done
+            done
+
+            echo ""
+            echo "---"
             echo "> 包名：\`${PKG_NAME}\` · 源码：[${PKG_REPO}](https://github.com/${PKG_REPO}) · 分支 \`${PKG_BRANCH}\`"
           } > release_notes.md
+
           cat release_notes.md
 
       - name: Publish Release
