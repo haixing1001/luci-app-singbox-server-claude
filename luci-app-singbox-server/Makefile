@@ -11,7 +11,7 @@ define Package/luci-app-singbox-server
 	CATEGORY:=LuCI
 	SUBMENU:=3. Applications
 	TITLE:=LuCI App for Sing-Box Server
-	DEPENDS:=+luci-base +sing-box
+	DEPENDS:=+luci-base
 	PKGARCH:=all
 endef
 
