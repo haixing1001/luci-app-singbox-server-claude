@@ -1,13 +1,35 @@
 local appname = "singbox_server"
+local uci = luci.model.uci.cursor()
 
 m = Map(appname, translate("Sing-box Server"))
 m.description = translate("Sing-box server-side management, designed similar to PassWall2 server page.")
 
-s = m:section(NamedSection, "global", "global", translate("Global Settings"))
+-- 确保全局配置段一定存在。否则 NamedSection/TypedSection 在某些 LuCI 版本不会显示。
+function m.on_init(self)
+	if not self.uci:get(appname, "global") then
+		self.uci:section(appname, "global", "global", {
+			enabled = "0",
+			loglevel = "info",
+			bin_path = "/usr/bin/sing-box"
+		})
+		self.uci:save(appname)
+		self.uci:commit(appname)
+	end
+end
+
+-- 全局设置：改用 TypedSection，兼容性比 NamedSection 更好，确保页面顶部显示全局开关。
+s = m:section(TypedSection, "global", translate("Global Settings"))
 s.anonymous = true
+s.addremove = false
+s.optional = false
+
+function s.filter(self, section)
+	return section == "global"
+end
 
 o = s:option(Flag, "enabled", translate("Enable"))
 o.rmempty = false
+o.default = "0"
 
 o = s:option(Value, "bin_path", translate("Sing-box Binary Path"))
 o.default = "/usr/bin/sing-box"
