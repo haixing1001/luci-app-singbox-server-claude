@@ -1,0 +1,20 @@
+<div style="margin-top:8px;">
+	<input class="btn cbi-button cbi-button-reset" type="button" value="<%:清空日志%>" onclick="clearSingBoxLog()" />
+	<pre id="singbox_log" style="margin-top:10px;height:360px;overflow:auto;border:1px solid #ccc;background:#fff;padding:8px;white-space:pre-wrap;font-family:monospace;"><%:正在加载日志...%></pre>
+</div>
+<script type="text/javascript">
+//<![CDATA[
+function loadSingBoxLog() {
+	XHR.get('<%=luci.dispatcher.build_url("admin/services/singbox-server/log")%>', null, function(x) {
+		document.getElementById('singbox_log').textContent = x.responseText || '';
+	});
+}
+function clearSingBoxLog() {
+	XHR.get('<%=luci.dispatcher.build_url("admin/services/singbox-server/clear_log")%>', null, function() {
+		loadSingBoxLog();
+	});
+}
+loadSingBoxLog();
+setInterval(loadSingBoxLog, 3000);
+//]]>
+</script>
