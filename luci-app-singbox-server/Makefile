@@ -1,7 +1,7 @@
 include $(TOPDIR)/rules.mk
 
 LUCI_TITLE:=LuCI support for Sing-box Server (multi-instance)
-LUCI_DEPENDS:=+sing-box +luci-compat
+LUCI_DEPENDS:=+luci-compat
 LUCI_PKGARCH:=all
 
 PKG_NAME:=luci-app-singbox-server
