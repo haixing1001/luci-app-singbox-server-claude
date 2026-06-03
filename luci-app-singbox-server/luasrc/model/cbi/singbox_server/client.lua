@@ -40,7 +40,7 @@ en.rmempty = false
 st = s:option(DummyValue, "_status", translate("状态"))
 st.rawhtml = true
 function st.cfgvalue(self, section)
-	local cmd = "pgrep -f 'sing-box run -c /tmp/etc/singbox_server/" .. section .. ".json' >/dev/null 2>&1"
+	local cmd = "ps -w | grep '[s]ing-box run -c /tmp/etc/singbox_server/" .. section .. ".json' >/dev/null 2>&1"
 	if sys.call(cmd) == 0 then
 		return "<span style='color:green;font-weight:bold'>✓</span>"
 	end
@@ -92,23 +92,6 @@ function down.write(self, section)
 		end
 	end)
 	uci:commit("singbox_server")
-	luci.http.redirect(dsp.build_url("admin/services/singbox-server"))
-end
-
-edit = s:option(Button, "_edit", " ")
-edit.inputtitle = translate("编辑")
-edit.inputstyle = "save"
-function edit.write(self, section)
-	luci.http.redirect(dsp.build_url("admin/services/singbox-server/edit/" .. section))
-end
-
-rm = s:option(Button, "_remove", " ")
-rm.inputtitle = translate("删除")
-rm.inputstyle = "reset"
-function rm.write(self, section)
-	uci:delete("singbox_server", section)
-	uci:commit("singbox_server")
-	luci.sys.call("/etc/init.d/singbox_server reload >/dev/null 2>&1 &")
 	luci.http.redirect(dsp.build_url("admin/services/singbox-server"))
 end
 

@@ -18,6 +18,29 @@ rand_pass() {
 	tr -dc 'A-Za-z0-9' </dev/urandom 2>/dev/null | head -c 24
 }
 
+normalize_protocol() {
+	local p
+	p="$(printf '%s' "$1" | tr 'A-Z' 'a-z')"
+	case "$p" in
+		vmess|xray-vmess|v2ray-vmess) echo "vmess" ;;
+		vless|xray-vless) echo "vless" ;;
+		trojan|xray-trojan) echo "trojan" ;;
+		hysteria2|hy2|hysteria) echo "hysteria2" ;;
+		tuic) echo "tuic" ;;
+		*) echo "vmess" ;;
+	esac
+}
+
+normalize_transport() {
+	local t
+	t="$(printf '%s' "$1" | tr 'A-Z' 'a-z')"
+	case "$t" in
+		websocket|ws) echo "ws" ;;
+		grpc|gun) echo "grpc" ;;
+		*) echo "tcp" ;;
+	esac
+}
+
 ensure_secret() {
 	local section="$1" proto="$2" uuid password
 	config_get uuid "$section" uuid ""
@@ -62,6 +85,7 @@ make_tls_json() {
 make_transport_json() {
 	local section="$1" protocol="$2" transport ws_host ws_path grpc_service_name
 	config_get transport "$section" transport "tcp"
+	transport="$(normalize_transport "$transport")"
 	[ "$protocol" = "hysteria2" ] || [ "$protocol" = "tuic" ] && return 0
 	case "$transport" in
 		ws)
@@ -88,7 +112,9 @@ gen_config() {
 	config_load "$CONFIG"
 	local protocol listen_port listen log custom_config custom_json uuid password remarks
 	config_get protocol "$section" protocol "vmess"
+	protocol="$(normalize_protocol "$protocol")"
 	config_get listen_port "$section" listen_port "4566"
+	case "$listen_port" in *[!0-9]*|"") listen_port="4566" ;; esac
 	config_get_bool local_listen "$section" local_listen 0
 	config_get_bool log "$section" log 0
 	config_get_bool custom_config "$section" custom_config 0
@@ -105,7 +131,7 @@ gen_config() {
 	config_load "$CONFIG"
 	config_get uuid "$section" uuid ""
 	config_get password "$section" password ""
-	[ "$local_listen" = "1" ] && listen="127.0.0.1" || listen="::"
+	[ "$local_listen" = "1" ] && listen="127.0.0.1" || listen="0.0.0.0"
 	uuid="$(json_escape "$uuid")"
 	password="$(json_escape "$password")"
 	remarks="$(json_escape "$remarks")"
@@ -133,6 +159,9 @@ gen_config() {
 				;;
 			tuic)
 				printf '"type":"tuic","tag":"%s","listen":"%s","listen_port":%s,"users":[{"uuid":"%s","password":"%s"}]' "$remarks" "$listen" "$listen_port" "$uuid" "$password"
+				;;
+			*)
+				printf '"type":"vmess","tag":"%s","listen":"%s","listen_port":%s,"users":[{"uuid":"%s","alterId":0}]' "$remarks" "$listen" "$listen_port" "$uuid"
 				;;
 			esac
 		make_tls_json "$section"

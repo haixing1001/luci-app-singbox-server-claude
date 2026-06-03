@@ -24,7 +24,7 @@ function action_status()
 	local status = {}
 	uci:foreach("singbox_server", "server", function(s)
 		local sid = s[".name"]
-		local cmd = "pgrep -f " .. shellquote("sing-box run -c /tmp/etc/singbox_server/" .. sid .. ".json") .. " >/dev/null 2>&1"
+		local cmd = "ps -w | grep " .. shellquote("[s]ing-box run -c /tmp/etc/singbox_server/" .. sid .. ".json") .. " >/dev/null 2>&1"
 		status[sid] = (luci.sys.call(cmd) == 0)
 	end)
 	http.prepare_content("application/json")
