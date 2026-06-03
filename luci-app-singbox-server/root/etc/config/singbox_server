@@ -1,19 +1,21 @@
+
 config global 'global'
 	option enabled '0'
-	option log_level 'warn'
-	option log_output '/var/log/singbox_server.log'
 
-# Example server entry (uncomment and fill to use):
-#
-# config server
-#	option enabled '0'
-#	option remarks '我的节点'
-#	option protocol 'vmess'
-#	option port '10086'
-#	option uuid 'xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx'
-#	option tls '0'
-#	option transport 'tcp'
-#	option accept_proxy_protocol '0'
-#	option tcp_fast_open '0'
-#	option local_only '0'
-#	option log '0'
+config server
+	option enabled '0'
+	option remarks '备注'
+	option type 'singbox'
+	option protocol 'vmess'
+	option listen_port '4566'
+	option uuid ''
+	option password ''
+	option tls '0'
+	option transport 'ws'
+	option ws_host ''
+	option ws_path '/'
+	option grpc_service_name 'grpc'
+	option mux '0'
+	option local_listen '0'
+	option lan_access '0'
+	option log '1'
