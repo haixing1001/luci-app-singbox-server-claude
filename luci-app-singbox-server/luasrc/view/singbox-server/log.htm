@@ -1,0 +1,8 @@
+<%+header%>
+<h2><%:Sing-box Server Log%> - <%=name%></h2>
+<textarea readonly="readonly" wrap="off" rows="25" style="width:100%; font-family:monospace;"><%=log%></textarea>
+<div class="cbi-page-actions">
+	<input type="button" class="cbi-button cbi-button-reload" value="<%:Refresh%>" onclick="location.reload()" />
+	<input type="button" class="cbi-button" value="<%:Back to Status%>" onclick="location.href='<%=luci.dispatcher.build_url('admin/services/singbox-server/status')%>'" />
+</div>
+<%+footer%>

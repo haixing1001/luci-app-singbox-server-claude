@@ -1,0 +1,11 @@
+config server 'example1'
+	option enabled '0'
+	option config_file '/etc/sing-box/server/example1.json'
+	option log_file '/var/log/singbox-server_example1.log'
+	option log_level 'info'
+
+config server 'example2'
+	option enabled '0'
+	option config_file '/etc/sing-box/server/example2.json'
+	option log_file '/var/log/singbox-server_example2.log'
+	option log_level 'info'
