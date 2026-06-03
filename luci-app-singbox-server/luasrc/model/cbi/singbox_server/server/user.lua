@@ -1,33 +1,31 @@
 local appname = "singbox_server"
 local sid = arg[1]
 
-m = Map(appname, translate("Server Config"))
+m = Map(appname, translate("Sing-box Server"))
 m.redirect = luci.dispatcher.build_url("admin", "services", appname, "server")
 
-if not sid or not m:get(sid) then
+if not sid or not m.uci:get(appname, sid) then
 	luci.http.redirect(m.redirect)
+	return
 end
 
-local header = Template(appname .. "/server/config_header")
-header.config = m.config
-header.section = sid
-m:append(header)
+m.title = translate("Edit Server User")
+m.description = translate("Configure one sing-box server instance.")
 
-s = m:section(NamedSection, sid, "user", "")
+s = m:section(NamedSection, sid, "user", translate("Basic Settings"))
 s.addremove = false
 s.dynamic = false
-s.val = m:get(sid) or {}
 
-o = s:option(Flag, "enable", translate("Enable"))
-o.default = "1"
+m:append(Template(appname .. "/server/config_header"))
+
+o = s:option(Flag, "enabled", translate("Enable"))
 o.rmempty = false
 
 o = s:option(Value, "remarks", translate("Remarks"))
-o.default = translate("Remarks")
-o.rmempty = false
+o.default = sid
 
 o = s:option(ListValue, "type", translate("Type"))
-o:value("sing-box", "Sing-Box")
+o:value("sing-box", "sing-box")
 o.default = "sing-box"
 o.rmempty = false
 
@@ -44,7 +42,7 @@ o = s:option(Value, "listen", translate("Listen Address"))
 o.default = "::"
 o.rmempty = false
 
-o = s:option(Value, "port", translate("Port"))
+o = s:option(Value, "listen_port", translate("Listen Port"))
 o.datatype = "port"
 o.default = "443"
 o.rmempty = false
@@ -140,9 +138,6 @@ o = s:option(Flag, "log", translate("Log"))
 o.default = "1"
 o.rmempty = false
 
-local footer = Template(appname .. "/server/config_footer")
-footer.config = m.config
-footer.section = sid
-m:append(footer)
+m:append(Template(appname .. "/server/config_footer"))
 
 return m

@@ -30,7 +30,7 @@ local inbound = {
 	type = protocol,
 	tag = "in-" .. section,
 	listen = get("listen", "::"),
-	listen_port = num("port", 443),
+	listen_port = num("listen_port", 443),
 	sniff = get_bool("sniff", true)
 }
 

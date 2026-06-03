@@ -1,5 +1,5 @@
 <fieldset class="cbi-section">
-	<legend><%:Logs%></legend>
+	<legend><%:Running Log%></legend>
 	<div style="margin-bottom:8px;">
 		<input class="btn cbi-button cbi-button-apply" type="button" value="<%:Restart Service%>" onclick="restartSingboxServer()" />
 		<input class="btn cbi-button cbi-button-reset" type="button" value="<%:Clear Log%>" onclick="clearSingboxServerLog()" />
@@ -9,7 +9,7 @@
 </fieldset>
 <script type="text/javascript">//<![CDATA[
 function loadSingboxServerLog() {
-	XHR.get('<%=url([[admin]], [[services]], [[singbox_server]], [[server_get_log]])%>', null, function(x) {
+	XHR.get('<%=url([[admin]], [[services]], [[singbox_server]], [[get_log]])%>', null, function(x, data) {
 		var e = document.getElementById('singbox_server_log');
 		if (e && x && x.responseText !== undefined) {
 			e.value = x.responseText;
@@ -18,7 +18,7 @@ function loadSingboxServerLog() {
 	});
 }
 function clearSingboxServerLog() {
-	XHR.get('<%=url([[admin]], [[services]], [[singbox_server]], [[server_clear_log]])%>', null, function() {
+	XHR.get('<%=url([[admin]], [[services]], [[singbox_server]], [[clear_log]])%>', null, function() {
 		loadSingboxServerLog();
 	});
 }
