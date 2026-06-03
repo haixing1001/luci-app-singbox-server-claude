@@ -1,0 +1,2 @@
+-- Reserved for PassWall2-like dynamic protocol pages.
+-- Current version keeps sing-box options in server/user.lua.

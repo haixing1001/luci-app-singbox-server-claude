@@ -40,7 +40,6 @@ jobs:
           - aarch64_cortex-a53
           - x86_64
         sdk:
-          - '24.10'
           - '25.12'
     steps:
       - name: Checkout this repo

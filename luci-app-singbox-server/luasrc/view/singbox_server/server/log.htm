@@ -1,0 +1,35 @@
+<fieldset class="cbi-section">
+	<legend><%:Running Log%></legend>
+	<div style="margin-bottom:8px;">
+		<input class="btn cbi-button cbi-button-apply" type="button" value="<%:Restart Service%>" onclick="restartSingboxServer()" />
+		<input class="btn cbi-button cbi-button-reset" type="button" value="<%:Clear Log%>" onclick="clearSingboxServerLog()" />
+		<label style="margin-left:12px;"><input type="checkbox" id="auto_refresh_log" checked="checked" /> <%:Auto Refresh%></label>
+	</div>
+	<textarea id="singbox_server_log" readonly="readonly" wrap="off" style="width:100%;height:280px;font-family:monospace;resize:vertical;"></textarea>
+</fieldset>
+<script type="text/javascript">//<![CDATA[
+function loadSingboxServerLog() {
+	XHR.get('<%=url([[admin]], [[services]], [[singbox_server]], [[get_log]])%>', null, function(x, data) {
+		var e = document.getElementById('singbox_server_log');
+		if (e && x && x.responseText !== undefined) {
+			e.value = x.responseText;
+			e.scrollTop = e.scrollHeight;
+		}
+	});
+}
+function clearSingboxServerLog() {
+	XHR.get('<%=url([[admin]], [[services]], [[singbox_server]], [[clear_log]])%>', null, function() {
+		loadSingboxServerLog();
+	});
+}
+function restartSingboxServer() {
+	XHR.get('<%=url([[admin]], [[services]], [[singbox_server]], [[restart]])%>', null, function() {
+		setTimeout(loadSingboxServerLog, 1000);
+	});
+}
+loadSingboxServerLog();
+setInterval(function() {
+	var cb = document.getElementById('auto_refresh_log');
+	if (!cb || cb.checked) loadSingboxServerLog();
+}, 3000);
+//]]></script>
