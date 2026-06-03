@@ -1,11 +1,11 @@
 msgid "Sing-Box Server"
 msgstr "Sing-Box 服务端"
 
-msgid "Standalone Sing-Box Server configuration based on Passwall2 logic."
-msgstr "基于 Passwall2 逻辑构建的独立 Sing-Box 服务端。"
+msgid "100% Modeled after PassWall2 Sing-Box Server page."
+msgstr "100% 仿照 PassWall2 Sing-Box 服务端页面构建。"
 
 msgid "Server Instances"
-msgstr "服务实例"
+msgstr "服务节点列表"
 
 msgid "Enable"
 msgstr "启用"
@@ -44,10 +44,10 @@ msgid "TLS"
 msgstr "TLS"
 
 msgid "Public key absolute path"
-msgstr "公钥绝对路径"
+msgstr "公钥证书 (PEM) 绝对路径"
 
 msgid "Private key absolute path"
-msgstr "私钥绝对路径"
+msgstr "私钥 (Key) 绝对路径"
 
 msgid "ALPN"
 msgstr "ALPN"
@@ -73,6 +73,9 @@ msgstr "传输协议"
 msgid "WebSocket Path"
 msgstr "WebSocket 路径"
 
+msgid "HTTPUpgrade Path"
+msgstr "HTTPUpgrade 路径"
+
 msgid "gRPC ServiceName"
 msgstr "gRPC ServiceName"
 
@@ -81,3 +84,42 @@ msgstr "最大上传 Mbps"
 
 msgid "Max download Mbps"
 msgstr "最大下载 Mbps"
+
+msgid "Mux"
+msgstr "Mux 多路复用"
+
+msgid "TCP Brutal"
+msgstr "TCP Brutal 拥塞控制"
+
+msgid "ECH"
+msgstr "ECH (加密客户问候)"
+
+msgid "Client BBR Flow Control"
+msgstr "客户端 BBR 流控"
+
+msgid "Realms"
+msgstr "Realms 端口跳跃"
+
+msgid "QUIC stream receive window"
+msgstr "QUIC 流接收窗口"
+
+msgid "QUIC connection receive window"
+msgstr "QUIC 连接接收窗口"
+
+msgid "QUIC concurrent bidirectional streams"
+msgstr "QUIC 并发双向流最大数量"
+
+msgid "Disable MTU detection"
+msgstr "禁用 MTU 探测"
+
+msgid "Use Custom Config"
+msgstr "使用自定义配置"
+
+msgid "Bind Interface"
+msgstr "绑定出口网卡"
+
+msgid "Bind Local"
+msgstr "本机监听"
+
+msgid "Accept LAN Access"
+msgstr "接受局域网访问"
