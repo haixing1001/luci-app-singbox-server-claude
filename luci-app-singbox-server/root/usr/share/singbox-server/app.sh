@@ -1,6 +1,7 @@
 #!/bin/sh
 
 . /lib/functions.sh
+. /lib/functions/procd.sh
 
 CONFIG="singbox_server"
 TMP_DIR="/tmp/etc/singbox_server"
@@ -23,11 +24,11 @@ start_user() {
 	local section="$1"
 	local enabled remarks port json logfile bin pidfile
 
-	config_get_bool enabled "$section" enabled 0
+	config_get_bool enabled "$section" enable 0
 	[ "$enabled" = "1" ] || return 0
 
 	config_get remarks "$section" remarks "$section"
-	config_get port "$section" listen_port
+	config_get port "$section" port
 
 	bin="$(get_bin)"
 	json="$TMP_DIR/${section}.json"
@@ -65,7 +66,7 @@ start() {
 	: > "$MAIN_LOG"
 
 	config_load "$CONFIG"
-	config_get_bool enabled global enabled 0
+	config_get_bool enabled global enable 0
 	[ "$enabled" = "1" ] || {
 		log "全局开关未启用"
 		return 0
@@ -81,11 +82,12 @@ start() {
 }
 
 stop() {
-	local pidfile pid
-	for pidfile in "$RUN_DIR"/*.pid; do
-		[ -f "$pidfile" ] || continue
-		pid="$(cat "$pidfile" 2>/dev/null)"
-		[ -n "$pid" ] && kill "$pid" 2>/dev/null
+	local json pid
+	for json in "$TMP_DIR"/*.json; do
+		[ -f "$json" ] || continue
+		for pid in $(pgrep -f "sing-box.*run.*$json"); do
+			kill "$pid" 2>/dev/null
+		done
 	done
 	rm -rf "$TMP_DIR" "$RUN_DIR"
 	log "已停止所有 sing-box 服务端实例"

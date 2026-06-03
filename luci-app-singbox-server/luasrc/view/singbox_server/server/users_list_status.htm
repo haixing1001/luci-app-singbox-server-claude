@@ -3,8 +3,7 @@
 	function updateStatus() {
 		var nodes = document.querySelectorAll('.singbox-server-status');
 		if (!nodes.length) return;
-
-		XHR.get('<%=url([[admin]], [[services]], [[singbox_server]], [[users_status]])%>', null, function(x, data) {
+		XHR.get('<%=url([[admin]], [[services]], [[singbox_server]], [[server_user_status]])%>', null, function(x, data) {
 			if (!data) return;
 			nodes.forEach(function(node) {
 				var id = node.getAttribute('data-id');
