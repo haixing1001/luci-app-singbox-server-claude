@@ -35,10 +35,6 @@ o = s:option(Value, "remarks", translate("备注"))
 o.default = translate("备注")
 o.rmempty = true
 
-o = s:option(ListValue, "type", translate("类型"))
-o:value("singbox", "Sing-Box")
-o.default = "singbox"
-
 o = s:option(Flag, "custom_config", translate("使用自定义配置"))
 o.rmempty = false
 

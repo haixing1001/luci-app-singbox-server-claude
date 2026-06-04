@@ -58,12 +58,22 @@ end
 
 tp = s:option(DummyValue, "_type", translate("类型"))
 function tp.cfgvalue(self, section)
+	local custom = m:get(section, "custom_config") or "0"
+	if custom == "1" then
+		return translate("自定义")
+	end
+
 	local p = (m:get(section, "protocol") or "vmess"):upper()
-	return "Sing-Box " .. p
+	return p
 end
 
-pt = s:option(DummyValue, "listen_port", translate("端口"))
+pt = s:option(DummyValue, "_port", translate("端口"))
 function pt.cfgvalue(self, section)
+	local custom = m:get(section, "custom_config") or "0"
+	if custom == "1" then
+		return translate("自定义")
+	end
+
 	return m:get(section, "listen_port") or "-"
 end
 
