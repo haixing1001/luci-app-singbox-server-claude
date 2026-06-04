@@ -74,7 +74,7 @@ lg.rmempty = false
 logbtn = s:option(DummyValue, "_logbtn", " ")
 logbtn.rawhtml = true
 function logbtn.cfgvalue(self, section)
-	return string.format([[<input class="btn cbi-button cbi-button-apply" type="button" value="%s" onclick="loadSingBoxLog('%s');location.hash='log_%s';return false;" />]], translate("日志"), section, section)
+	return string.format("<input class=\"btn cbi-button cbi-button-apply\" type=\"button\" value=\"%s\" onclick='loadSingBoxLog(%q);location.hash=%q;return false;' />", translate("日志"), section, "log_" .. section)
 end
 
 up = s:option(Button, "_up", " ")
