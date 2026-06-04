@@ -16,7 +16,16 @@ s.anonymous = true
 s.addremove = false
 
 function m.on_after_commit(self)
-	sys.call("/etc/init.d/singbox_server reload >/dev/null 2>&1 &")
+	local uci = require "luci.model.uci".cursor()
+	local enabled = uci:get("singbox_server", sid, "enabled") or "0"
+
+	-- 只有当前节点启用时才触发 sing-box reload；未启用则只保存配置，不重载服务
+	if enabled == "1" then
+		sys.call("/etc/init.d/singbox_server reload >/dev/null 2>&1 &")
+	end
+
+	-- 保存应用后统一跳转回概览页
+	luci.http.redirect(dsp.build_url("admin/services/singbox-server"))
 end
 
 o = s:option(Flag, "enabled", translate("启用"))
@@ -51,8 +60,9 @@ o.datatype = "port"
 o.default = "4566"
 o.rmempty = false
 
-o = s:option(Value, "uuid", translate("ID/密码"), translate("VMess/VLESS/TUIC 使用 UUID；Trojan/Hysteria2/TUIC 使用密码。留空时启动会自动生成。"))
-o.placeholder = translate("-- 请选择 --")
+o = s:option(Value, "uuid", translate("ID/密码"), translate("VMess/VLESS/TUIC 使用 UUID；Trojan/Hysteria2/TUIC 使用密码。留空时默认使用 ba9872bc-ebdf-4ce2-8c6f-fce7fa2357aa。"))
+o.default = "ba9872bc-ebdf-4ce2-8c6f-fce7fa2357aa"
+o.placeholder = "ba9872bc-ebdf-4ce2-8c6f-fce7fa2357aa"
 o.rmempty = true
 
 o = s:option(Value, "password", translate("密码"))
@@ -119,6 +129,7 @@ o = s:option(Flag, "lan_access", translate("接受局域网访问"), translate("
 o.rmempty = false
 
 o = s:option(Flag, "log", translate("日志"))
+o.default = "0"
 o.rmempty = false
 
 return m

@@ -26,10 +26,11 @@ function s.create(self, section)
 	self.map:set(sid, "type", "singbox")
 	self.map:set(sid, "protocol", "vmess")
 	self.map:set(sid, "listen_port", "4566")
+	self.map:set(sid, "uuid", "ba9872bc-ebdf-4ce2-8c6f-fce7fa2357aa")
 	self.map:set(sid, "transport", "ws")
 	self.map:set(sid, "ws_path", "/")
 	self.map:set(sid, "enabled", "0")
-	self.map:set(sid, "log", "1")
+	self.map:set(sid, "log", "0")
 	if self.map.uci then
 		self.map.uci:save("singbox_server")
 		self.map.uci:commit("singbox_server")
@@ -67,12 +68,13 @@ function pt.cfgvalue(self, section)
 end
 
 lg = s:option(Flag, "log", translate("日志"))
+lg.default = "0"
 lg.rmempty = false
 
 logbtn = s:option(DummyValue, "_logbtn", " ")
 logbtn.rawhtml = true
 function logbtn.cfgvalue(self, section)
-	return string.format('<input class="btn cbi-button cbi-button-apply" type="button" value="%s" onclick="loadSingBoxLog('%s');location.hash='log_%s';return false;" />', translate("日志"), section, section)
+	return string.format([[<input class="btn cbi-button cbi-button-apply" type="button" value="%s" onclick="loadSingBoxLog('%s');location.hash='log_%s';return false;" />]], translate("日志"), section, section)
 end
 
 up = s:option(Button, "_up", " ")

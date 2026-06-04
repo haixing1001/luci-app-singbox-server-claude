@@ -5,6 +5,7 @@
 CONFIG=singbox_server
 LOGDIR=/tmp/log
 MAINLOG=/tmp/log/singbox_server.log
+DEFAULT_UUID="ba9872bc-ebdf-4ce2-8c6f-fce7fa2357aa"
 
 append_log() {
 	mkdir -p "$LOGDIR"
@@ -16,10 +17,7 @@ json_escape() {
 }
 
 rand_uuid() {
-	if command -v sing-box >/dev/null 2>&1; then
-		sing-box generate uuid 2>/dev/null && return
-	fi
-	cat /proc/sys/kernel/random/uuid 2>/dev/null
+	echo "$DEFAULT_UUID"
 }
 
 rand_pass() {
