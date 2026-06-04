@@ -20,13 +20,7 @@ append_log() {
 
 check_config() {
 	local conf="$1" tmp="/tmp/singbox_server_check.$$"
-	# OpenWrt 常见 sing-box 版本要求全局参数 -c 放在子命令前。
-	# 先使用兼容性最好的：sing-box -c <file> check。
-	if "$BIN" -c "$conf" check >"$tmp" 2>&1; then
-		rm -f "$tmp"
-		return 0
-	fi
-	# 兼容少数新版写法。
+	# 按要求恢复原始方式：sing-box check -c <file>
 	if "$BIN" check -c "$conf" >"$tmp" 2>&1; then
 		rm -f "$tmp"
 		return 0
@@ -68,7 +62,7 @@ start_instance() {
 	fi
 
 	procd_open_instance "$section"
-	procd_set_param command "$BIN" -c "$conf" run
+	procd_set_param command "$BIN" run -c "$conf"
 	procd_set_param respawn 3600 5 5
 	procd_set_param file "/etc/config/$CONFIG"
 	procd_set_param stdout 1

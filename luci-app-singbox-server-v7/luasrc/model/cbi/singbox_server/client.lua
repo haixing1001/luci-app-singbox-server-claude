@@ -40,7 +40,7 @@ en.rmempty = false
 st = s:option(DummyValue, "_status", translate("状态"))
 st.rawhtml = true
 function st.cfgvalue(self, section)
-	local cmd = "ps -w | grep '[s]ing-box .* /tmp/etc/singbox_server/" .. section .. ".json' >/dev/null 2>&1"
+	local cmd = "ps -w | grep '[s]ing-box run -c /tmp/etc/singbox_server/" .. section .. ".json' >/dev/null 2>&1"
 	if sys.call(cmd) == 0 then
 		return "<span style='color:green;font-weight:bold'>✓</span>"
 	end
