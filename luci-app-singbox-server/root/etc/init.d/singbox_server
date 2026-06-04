@@ -18,6 +18,12 @@ append_log() {
 	echo "$(date '+%Y-%m-%d %H:%M:%S'): $*" >> "$MAINLOG"
 }
 
+clear_logs() {
+	mkdir -p /tmp/log
+	: > "$MAINLOG"
+	rm -f /tmp/log/singbox_server_*.log
+}
+
 check_config() {
 	local conf="$1" tmp="/tmp/singbox_server_check.$$"
 	# 按要求恢复原始方式：sing-box check -c <file>
@@ -31,6 +37,8 @@ check_config() {
 }
 
 start_service() {
+	clear_logs
+	append_log "清空旧日志"
 	config_load "$CONFIG"
 	local global_enabled
 	config_get_bool global_enabled global enabled 0
@@ -49,6 +57,7 @@ start_instance() {
 	config_get_bool log "$section" log 0
 	config_get listen_port "$section" listen_port ""
 	conf="$RUNDIR/$section.json"
+	: > "/tmp/log/singbox_server_${section}.log"
 
 	$GEN gen "$section" "$conf" || { append_log "$remarks 生成配置文件失败"; return 1; }
 	append_log "$remarks 生成配置文件并运行 - $conf"

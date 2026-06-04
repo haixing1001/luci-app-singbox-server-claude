@@ -30,7 +30,10 @@ function s.create(self, section)
 	self.map:set(sid, "ws_path", "/")
 	self.map:set(sid, "enabled", "0")
 	self.map:set(sid, "log", "1")
-	self.map:save("singbox_server")
+	if self.map.uci then
+		self.map.uci:save("singbox_server")
+		self.map.uci:commit("singbox_server")
+	end
 	luci.http.redirect(dsp.build_url("admin/services/singbox-server/edit/" .. sid))
 end
 
@@ -66,11 +69,10 @@ end
 lg = s:option(Flag, "log", translate("日志"))
 lg.rmempty = false
 
-logbtn = s:option(Button, "_logbtn", " ")
-logbtn.inputtitle = translate("日志")
-logbtn.inputstyle = "apply"
-function logbtn.write(self, section)
-	luci.http.redirect(dsp.build_url("admin/services/singbox-server") .. "#log_" .. section)
+logbtn = s:option(DummyValue, "_logbtn", " ")
+logbtn.rawhtml = true
+function logbtn.cfgvalue(self, section)
+	return string.format('<input class="btn cbi-button cbi-button-apply" type="button" value="%s" onclick="loadSingBoxLog('%s');location.hash='log_%s';return false;" />', translate("日志"), section, section)
 end
 
 up = s:option(Button, "_up", " ")

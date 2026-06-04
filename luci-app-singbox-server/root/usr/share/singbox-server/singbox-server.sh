@@ -188,7 +188,11 @@ gen_config() {
 	config_get remarks "$section" remarks "$section"
 
 	mkdir -p "$(dirname "$out")" "$LOGDIR"
-	if [ "$custom_config" = "1" ] && [ -n "$custom_json" ]; then
+	if [ "$custom_config" = "1" ]; then
+		if [ -z "$custom_json" ]; then
+			append_log "$section 配置错误：已启用自定义配置，但自定义配置内容为空"
+			return 1
+		fi
 		printf '%s\n' "$custom_json" > "$out"
 		return $?
 	fi
@@ -198,7 +202,7 @@ gen_config() {
 	config_load "$CONFIG"
 	config_get uuid "$section" uuid ""
 	config_get password "$section" password ""
-	[ "$local_listen" = "1" ] && listen="127.0.0.1" || listen="0.0.0.0"
+	[ "$local_listen" = "1" ] && listen="127.0.0.1" || listen="::"
 	uuid="$(json_escape "$uuid")"
 	password="$(json_escape "$password")"
 	remarks="$(json_escape "$remarks")"
