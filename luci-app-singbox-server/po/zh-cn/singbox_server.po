@@ -1,5 +1,5 @@
-msgid "Sing-Box 服务器"
-msgstr "Sing-Box 服务器"
+msgid "SingBox服务端"
+msgstr "SingBox服务端"
 
 msgid "服务器端"
 msgstr "服务器端"

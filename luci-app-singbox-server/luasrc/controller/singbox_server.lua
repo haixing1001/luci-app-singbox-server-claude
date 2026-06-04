@@ -5,13 +5,15 @@ function index()
 		return
 	end
 
-	entry({"admin", "services", "singbox-server"}, cbi("singbox_server/client"), _("Sing-Box 服务器"), 60).dependent = true
-	entry({"admin", "services", "singbox-server", "edit"}, cbi("singbox_server/server"), nil).leaf = true
-	entry({"admin", "services", "singbox-server", "status"}, call("action_status")).leaf = true
-	entry({"admin", "services", "singbox-server", "log"}, call("action_log")).leaf = true
-	entry({"admin", "services", "singbox-server", "clear_log"}, call("action_clear_log")).leaf = true
-	entry({"admin", "services", "singbox-server", "start"}, call("action_start")).leaf = true
-	entry({"admin", "services", "singbox-server", "stop"}, call("action_stop")).leaf = true
+	entry({"admin", "vpn"}, firstchild(), _("VPN"), 45).dependent = false
+
+	entry({"admin", "vpn", "singbox-server"}, cbi("singbox_server/client"), _("SingBox服务端"), 60).dependent = true
+	entry({"admin", "vpn", "singbox-server", "edit"}, cbi("singbox_server/server"), nil).leaf = true
+	entry({"admin", "vpn", "singbox-server", "status"}, call("action_status")).leaf = true
+	entry({"admin", "vpn", "singbox-server", "log"}, call("action_log")).leaf = true
+	entry({"admin", "vpn", "singbox-server", "clear_log"}, call("action_clear_log")).leaf = true
+	entry({"admin", "vpn", "singbox-server", "start"}, call("action_start")).leaf = true
+	entry({"admin", "vpn", "singbox-server", "stop"}, call("action_stop")).leaf = true
 end
 
 local function shellquote(s)
@@ -53,11 +55,11 @@ end
 function action_start()
 	local http = require "luci.http"
 	luci.sys.call("/etc/init.d/singbox_server restart >/dev/null 2>&1 &")
-	http.redirect(luci.dispatcher.build_url("admin/services/singbox-server"))
+	http.redirect(luci.dispatcher.build_url("admin/vpn/singbox-server"))
 end
 
 function action_stop()
 	local http = require "luci.http"
 	luci.sys.call("/etc/init.d/singbox_server stop >/dev/null 2>&1 &")
-	http.redirect(luci.dispatcher.build_url("admin/services/singbox-server"))
+	http.redirect(luci.dispatcher.build_url("admin/vpn/singbox-server"))
 end

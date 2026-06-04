@@ -4,12 +4,12 @@ local dsp = require "luci.dispatcher"
 local sys = require "luci.sys"
 
 if not sid or sid == "" then
-	luci.http.redirect(dsp.build_url("admin/services/singbox-server"))
+	luci.http.redirect(dsp.build_url("admin/vpn/singbox-server"))
 	return
 end
 
 m = Map("singbox_server", translate("服务器配置"))
-m.redirect = dsp.build_url("admin/services/singbox-server")
+m.redirect = dsp.build_url("admin/vpn/singbox-server")
 
 s = m:section(NamedSection, sid, "server")
 s.anonymous = true
@@ -25,7 +25,7 @@ function m.on_after_commit(self)
 	end
 
 	-- 保存应用后统一跳转回概览页
-	luci.http.redirect(dsp.build_url("admin/services/singbox-server"))
+	luci.http.redirect(dsp.build_url("admin/vpn/singbox-server"))
 end
 
 o = s:option(Flag, "enabled", translate("启用"))

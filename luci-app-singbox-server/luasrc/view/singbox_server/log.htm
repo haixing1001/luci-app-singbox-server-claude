@@ -11,7 +11,7 @@
 var singboxCurrentLogSid = 'main';
 
 function singboxLogUrl(action, sid) {
-	var url = '<%=luci.dispatcher.build_url("admin/services/singbox-server")%>/' + action;
+	var url = '<%=luci.dispatcher.build_url("admin/vpn/singbox-server")%>/' + action;
 	if (sid && sid != 'main')
 		url += '?sid=' + encodeURIComponent(sid);
 	return url;

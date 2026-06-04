@@ -18,7 +18,7 @@ s.anonymous = true
 s.addremove = true
 s.addbtntitle = translate("添加")
 s.template = "cbi/tblsection"
-s.extedit = dsp.build_url("admin/services/singbox-server/edit/%s")
+s.extedit = dsp.build_url("admin/vpn/singbox-server/edit/%s")
 
 function s.create(self, section)
 	local sid = TypedSection.create(self, section)
@@ -35,7 +35,7 @@ function s.create(self, section)
 		self.map.uci:save("singbox_server")
 		self.map.uci:commit("singbox_server")
 	end
-	luci.http.redirect(dsp.build_url("admin/services/singbox-server/edit/" .. sid))
+	luci.http.redirect(dsp.build_url("admin/vpn/singbox-server/edit/" .. sid))
 end
 
 en = s:option(Flag, "enabled", translate("启用"))
@@ -92,7 +92,7 @@ up.inputtitle = translate("上移")
 function up.write(self, section)
 	uci:reorder("singbox_server", section, 0)
 	uci:commit("singbox_server")
-	luci.http.redirect(dsp.build_url("admin/services/singbox-server"))
+	luci.http.redirect(dsp.build_url("admin/vpn/singbox-server"))
 end
 
 down = s:option(Button, "_down", " ")
@@ -106,7 +106,7 @@ function down.write(self, section)
 		end
 	end)
 	uci:commit("singbox_server")
-	luci.http.redirect(dsp.build_url("admin/services/singbox-server"))
+	luci.http.redirect(dsp.build_url("admin/vpn/singbox-server"))
 end
 
 -- 日志区，和截图一致放在表格下方
